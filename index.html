@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Second Brain</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0a0908;
+  --surface: #111009;
+  --card: #181612;
+  --card-hover: #1e1c17;
+  --border: #252219;
+  --border-light: #2e2b22;
+  --accent: #c9a96e;
+  --accent-dim: #8b6f44;
+  --accent-glow: rgba(201,169,110,0.08);
+  --text: #ede5d4;
+  --text-dim: #7a7168;
+  --text-muted: #4a4540;
+  --danger: #8b4444;
+}
+
+html, body { height: 100%; overflow: hidden; background: var(--bg); }
+
+body {
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── SETUP SCREEN ─────────────────────────────────────── */
+#setupScreen {
+  position: fixed; inset: 0;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+  flex-direction: column;
+  gap: 0;
+}
+
+.setup-wrap {
+  width: 420px;
+  animation: fadeUp 0.5s ease forwards;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.setup-logo {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 32px;
+  font-weight: 300;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.setup-logo-mark {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; color: #0a0908;
+}
+.setup-sub {
+  font-size: 11px; color: var(--text-muted);
+  letter-spacing: 0.06em; margin-bottom: 40px;
+}
+
+.setup-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 28px;
+}
+.setup-card-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 20px; font-weight: 300;
+  margin-bottom: 20px; color: var(--text);
+}
+
+.setup-field { margin-bottom: 16px; }
+.setup-field label {
+  display: block; font-size: 9px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;
+}
+.setup-field input {
+  width: 100%; background: var(--card);
+  border: 1px solid var(--border); color: var(--text);
+  font-family: 'DM Mono', monospace; font-size: 11px;
+  padding: 10px 12px; border-radius: 4px; outline: none;
+  transition: border-color 0.15s;
+}
+.setup-field input:focus { border-color: var(--accent-dim); }
+.setup-field input::placeholder { color: var(--text-muted); }
+
+.setup-hint {
+  font-size: 10px; color: var(--text-muted);
+  line-height: 1.6; margin-top: 6px;
+}
+.setup-hint a { color: var(--accent); text-decoration: none; }
+
+.setup-btn {
+  width: 100%; background: var(--accent); color: #0a0908;
+  border: none; padding: 12px; border-radius: 4px;
+  font-family: 'DM Mono', monospace; font-size: 11px;
+  letter-spacing: 0.07em; cursor: pointer; margin-top: 8px;
+  transition: background 0.15s;
+}
+.setup-btn:hover { background: #dbb97e; }
+.setup-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.setup-error {
+  color: #c47070; font-size: 10px; margin-top: 10px;
+  display: none; line-height: 1.5;
+}
+
+/* ── TOP BAR ──────────────────────────────────────────── */
+.topbar {
+  height: 54px;
+  display: flex; align-items: center;
+  padding: 0 24px; gap: 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0; background: var(--surface);
+}
+
+.logo {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 20px; font-weight: 300;
+  letter-spacing: 0.07em;
+  display: flex; align-items: center; gap: 9px; flex-shrink: 0;
+}
+.logo-mark {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; color: #0a0908;
+}
+
+.search-global { flex: 1; max-width: 480px; position: relative; }
+.search-global input {
+  width: 100%; background: var(--card);
+  border: 1px solid var(--border); color: var(--text);
+  font-family: 'DM Mono', monospace; font-size: 11px;
+  padding: 8px 12px 8px 32px; border-radius: 4px; outline: none;
+  transition: border-color 0.15s;
+}
+.search-global input:focus { border-color: var(--accent-dim); }
+.search-global .si {
+  position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+  color: var(--text-muted); font-size: 13px; pointer-events: none;
+}
+
+.topbar-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+.btn {
+  border: none; cursor: pointer; font-family: 'DM Mono', monospace;
+  font-size: 11px; letter-spacing: 0.05em; border-radius: 3px; transition: all 0.15s;
+}
+.btn-accent { background: var(--accent); color: #0a0908; padding: 8px 16px; }
+.btn-accent:hover { background: #dbb97e; }
+.btn-ghost {
+  background: transparent; color: var(--text-dim);
+  padding: 7px 12px; border: 1px solid var(--border);
+}
+.btn-ghost:hover { border-color: var(--accent-dim); color: var(--text); }
+.btn-icon {
+  background: transparent; color: var(--text-muted);
+  padding: 6px 9px; border: 1px solid var(--border); font-size: 14px;
+}
+.btn-icon:hover { color: var(--accent); border-color: var(--accent-dim); }
+.btn-icon.active { background: var(--accent-glow); color: var(--accent); border-color: var(--accent-dim); }
+
+/* ── MAIN LAYOUT ──────────────────────────────────────── */
+.main { flex: 1; display: flex; overflow: hidden; }
+
+/* ── SIDEBAR ──────────────────────────────────────────── */
+.sidebar {
+  width: 220px; border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  background: var(--surface); flex-shrink: 0; overflow-y: auto;
+}
+.sidebar-section { padding: 16px 14px 8px; }
+.sidebar-label {
+  font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-muted); margin-bottom: 8px;
+}
+
+.proj-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px; border-radius: 4px;
+  cursor: pointer; transition: background 0.12s; margin-bottom: 2px;
+}
+.proj-item:hover { background: var(--card); }
+.proj-item.active { background: var(--accent-glow); }
+.proj-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.proj-name { flex: 1; font-size: 11px; color: var(--text-dim); }
+.proj-item.active .proj-name { color: var(--text); }
+.proj-count {
+  font-size: 9px; color: var(--text-muted);
+  background: var(--card); padding: 1px 5px; border-radius: 10px;
+}
+
+.add-proj-btn {
+  display: flex; align-items: center; gap: 7px;
+  padding: 7px 10px; border-radius: 4px; cursor: pointer;
+  color: var(--text-muted); font-size: 11px;
+  border: 1px dashed var(--border); margin: 4px 0;
+  background: transparent; width: 100%;
+  font-family: 'DM Mono', monospace; transition: all 0.12s;
+}
+.add-proj-btn:hover { border-color: var(--accent-dim); color: var(--accent); }
+
+.sidebar-divider { border: none; border-top: 1px solid var(--border); margin: 8px 14px; }
+
+.tag-cloud { padding: 0 14px 16px; display: flex; flex-wrap: wrap; gap: 5px; }
+.tag-pill {
+  background: var(--card); color: var(--text-muted);
+  font-size: 9px; padding: 3px 8px; border-radius: 12px;
+  cursor: pointer; border: 1px solid var(--border); transition: all 0.12s;
+  letter-spacing: 0.04em;
+}
+.tag-pill:hover { border-color: var(--accent-dim); color: var(--accent); }
+.tag-pill.active { background: var(--accent-glow); color: var(--accent); border-color: var(--accent-dim); }
+
+/* ── CONTENT ──────────────────────────────────────────── */
+.content-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+.content-toolbar {
+  padding: 12px 20px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+  flex-shrink: 0; background: var(--surface);
+}
+.view-label {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 18px; font-weight: 300; flex: 1;
+}
+.view-sub { font-size: 10px; color: var(--text-muted); letter-spacing: 0.04em; }
+
+.view-toggle { display: flex; border: 1px solid var(--border); border-radius: 3px; overflow: hidden; }
+.vt-btn {
+  padding: 6px 10px; background: transparent; border: none;
+  color: var(--text-muted); cursor: pointer; font-size: 14px; transition: all 0.12s;
+}
+.vt-btn.active { background: var(--accent); color: #0a0908; }
+.vt-btn:hover:not(.active) { background: var(--card); color: var(--text); }
+
+.sort-select {
+  background: var(--card); border: 1px solid var(--border);
+  color: var(--text-dim); font-family: 'DM Mono', monospace;
+  font-size: 10px; padding: 6px 8px; border-radius: 3px; outline: none;
+}
+
+/* ── BOARD ────────────────────────────────────────────── */
+.board-wrap {
+  flex: 1; overflow-y: auto; padding: 20px;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+
+.masonry { columns: 4; column-gap: 12px; }
+@media (max-width: 1200px) { .masonry { columns: 3; } }
+@media (max-width: 900px) { .masonry { columns: 2; } }
+@media (max-width: 600px) { .masonry { columns: 1; } }
+
+.card {
+  break-inside: avoid; margin-bottom: 12px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 6px; overflow: hidden; cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  position: relative; display: block;
+  animation: fadeUp 0.3s ease forwards;
+}
+.card:hover {
+  border-color: var(--accent-dim); transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.4);
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.card-thumb {
+  width: 100%; background: var(--surface);
+  display: flex; align-items: center; justify-content: center;
+  min-height: 80px; padding: 16px;
+}
+.card-thumb img.full { width: 100%; display: block; padding: 0; min-height: 60px; object-fit: cover; }
+.card-thumb .fav { width: 32px; height: 32px; border-radius: 4px; }
+.card-thumb .type-icon { font-size: 26px; color: var(--text-muted); }
+
+.card-body { padding: 11px 13px 10px; }
+.card-proj-bar { display: flex; align-items: center; gap: 5px; margin-bottom: 6px; }
+.card-proj-dot { width: 6px; height: 6px; border-radius: 50%; }
+.card-proj-name { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.card-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 14px; color: var(--text); line-height: 1.35; margin-bottom: 6px;
+}
+.card-summary {
+  font-size: 10px; color: var(--text-dim); line-height: 1.55;
+  margin-bottom: 8px; font-style: italic;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.card-tag {
+  font-size: 9px; color: var(--text-muted);
+  background: var(--surface); padding: 2px 6px; border-radius: 2px;
+}
+.card-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 9px; color: var(--text-muted);
+}
+
+.card-actions {
+  position: absolute; top: 7px; right: 7px;
+  display: none; gap: 4px;
+}
+.card:hover .card-actions { display: flex; }
+.ca-btn {
+  width: 26px; height: 26px; background: rgba(10,9,8,0.88);
+  border: 1px solid var(--border); border-radius: 3px;
+  color: var(--text-dim); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; transition: all 0.12s; backdrop-filter: blur(4px);
+}
+.ca-btn:hover { border-color: var(--danger); color: #c47070; }
+.ca-btn.open:hover { border-color: var(--accent-dim); color: var(--accent); }
+
+/* List view */
+.list-view { display: flex; flex-direction: column; gap: 6px; }
+.list-row {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 5px; padding: 12px 14px;
+  display: flex; gap: 12px; align-items: flex-start;
+  cursor: pointer; transition: border-color 0.12s; position: relative;
+  animation: fadeUp 0.2s ease forwards;
+}
+.list-row:hover { border-color: var(--accent-dim); }
+.list-icon {
+  width: 32px; height: 32px; border-radius: 4px;
+  background: var(--surface); display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0; font-size: 14px;
+}
+.list-icon img { width: 18px; height: 18px; border-radius: 2px; }
+.list-body { flex: 1; min-width: 0; }
+.list-title { font-family:'Cormorant Garamond',serif;font-size:14px;color:var(--text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.list-sum { font-size:10px;color:var(--text-dim);margin-bottom:5px;font-style:italic;line-height:1.4; }
+.list-meta { display:flex;gap:6px;align-items:center;flex-wrap:wrap; }
+.list-proj { display:flex;gap:4px;align-items:center; }
+.list-proj-dot { width:6px;height:6px;border-radius:50%; }
+.list-proj-name { font-size:9px;color:var(--text-muted); }
+.list-tag { background:var(--surface);color:var(--text-muted);font-size:9px;padding:2px 6px;border-radius:2px; }
+.list-time { font-size:9px;color:var(--text-muted);margin-left:auto; }
+.list-actions { display:none;gap:4px;flex-shrink:0; }
+.list-row:hover .list-actions { display:flex; }
+
+/* Empty */
+.empty-state {
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:80px 24px;text-align:center;gap:14px;
+}
+.empty-glyph { font-family:'Cormorant Garamond',serif;font-size:64px;font-weight:300;color:var(--border);line-height:1; }
+.empty-title { font-family:'Cormorant Garamond',serif;font-size:20px;font-style:italic;color:var(--text-muted); }
+.empty-sub { font-size:10px;line-height:1.7;color:var(--text-muted);max-width:300px; }
+
+/* ── CHAT ─────────────────────────────────────────────── */
+.chat-panel {
+  width: 300px; border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  background: var(--surface); flex-shrink: 0;
+  transition: width 0.25s ease;
+}
+.chat-panel.collapsed { width: 0; overflow: hidden; border: none; }
+
+.chat-header {
+  padding: 14px 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+}
+.chat-title { font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:300;flex:1; }
+
+.chat-messages {
+  flex: 1; overflow-y: auto; padding: 14px;
+  display: flex; flex-direction: column; gap: 10px;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+
+.chat-msg { animation: fadeUp 0.2s ease forwards; }
+.chat-msg.user .bubble {
+  background: var(--accent-glow); border: 1px solid rgba(201,169,110,0.2);
+  color: var(--text); margin-left: 16px;
+}
+.chat-msg.ai .bubble {
+  background: var(--card); border: 1px solid var(--border);
+  color: var(--text-dim); margin-right: 16px;
+}
+.bubble { padding: 10px 12px; border-radius: 5px; font-size: 11px; line-height: 1.6; }
+
+.chat-suggestions { padding: 8px 14px; display: flex; flex-direction: column; gap: 5px; flex-shrink: 0; }
+.sugg-btn {
+  background: var(--card); border: 1px solid var(--border);
+  color: var(--text-muted); font-family:'DM Mono',monospace;
+  font-size: 10px; padding: 7px 10px; border-radius: 3px;
+  cursor: pointer; text-align: left; transition: all 0.12s;
+}
+.sugg-btn:hover { border-color: var(--accent-dim); color: var(--text); }
+
+.chat-input-wrap {
+  padding: 10px 14px; border-top: 1px solid var(--border);
+  display: flex; gap: 7px; flex-shrink: 0;
+}
+.chat-input {
+  flex: 1; background: var(--card); border: 1px solid var(--border);
+  color: var(--text); font-family:'DM Mono',monospace;
+  font-size: 11px; padding: 8px 10px; border-radius: 3px;
+  outline: none; resize: none; line-height: 1.4; transition: border-color 0.15s;
+}
+.chat-input:focus { border-color: var(--accent-dim); }
+.chat-send {
+  background: var(--accent); color: #0a0908; border: none;
+  padding: 8px 12px; border-radius: 3px; cursor: pointer; font-size: 14px;
+  transition: background 0.15s; flex-shrink: 0;
+}
+.chat-send:hover { background: #dbb97e; }
+.chat-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── MODALS ───────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(10,9,8,0.85);
+  backdrop-filter: blur(4px); z-index: 500;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 24px; width: 380px;
+  transform: translateY(10px); transition: transform 0.2s;
+}
+.modal-overlay.open .modal { transform: translateY(0); }
+.modal-title { font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300;margin-bottom:20px; }
+.field { margin-bottom: 14px; }
+.field label { display:block;font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:5px; }
+.field input {
+  width:100%;background:var(--card);border:1px solid var(--border);
+  color:var(--text);font-family:'DM Mono',monospace;font-size:11px;
+  padding:9px 11px;border-radius:3px;outline:none;transition:border-color 0.15s;
+}
+.field input:focus { border-color:var(--accent-dim); }
+.color-swatches { display:flex;gap:7px;flex-wrap:wrap; }
+.swatch { width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:border-color 0.12s; }
+.swatch.selected { border-color: var(--text); }
+.modal-actions { display:flex;gap:8px;justify-content:flex-end;margin-top:20px; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* Loading spinner */
+.spinner {
+  width: 16px; height: 16px; border: 2px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin 0.8s linear infinite; display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- SETUP SCREEN -->
+<div id="setupScreen">
+  <div class="setup-wrap">
+    <div class="setup-logo">
+      <div class="setup-logo-mark">✦</div>
+      second brain
+    </div>
+    <div class="setup-sub">connect your database to get started</div>
+
+    <div class="setup-card">
+      <div class="setup-card-title">Supabase Setup</div>
+
+      <div class="setup-field">
+        <label>Supabase URL</label>
+        <input type="text" id="sbUrl" placeholder="https://xxxxxxxxxxxx.supabase.co" />
+      </div>
+      <div class="setup-field">
+        <label>Supabase Anon Key</label>
+        <input type="text" id="sbKey" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…" />
+        <div class="setup-hint">
+          Find both at <a href="https://supabase.com/dashboard" target="_blank">supabase.com/dashboard</a>
+          → your project → Settings → API
+        </div>
+      </div>
+      <div class="setup-field">
+        <label>Claude API Key</label>
+        <input type="password" id="claudeKey" placeholder="sk-ant-…" />
+        <div class="setup-hint">
+          From <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> → API Keys.
+          Stored in your browser only.
+        </div>
+      </div>
+
+      <button class="setup-btn" id="setupBtn">connect & enter →</button>
+      <div class="setup-error" id="setupError"></div>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none;flex:1;flex-direction:column;height:100%;">
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="logo"><div class="logo-mark">✦</div>second brain</div>
+    <div class="search-global">
+      <span class="si">⌕</span>
+      <input type="text" id="searchInput" placeholder="Search everything…" />
+    </div>
+    <div class="topbar-right">
+      <button class="btn btn-icon" id="chatToggleBtn" title="AI Chat">💬</button>
+      <button class="btn btn-icon" id="refreshBtn" title="Refresh">↻</button>
+      <button class="btn btn-ghost" id="disconnectBtn">disconnect</button>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Projects</div>
+        <div id="projectList"></div>
+        <button class="add-proj-btn" id="addProjBtn">+ new project</button>
+      </div>
+      <hr class="sidebar-divider" />
+      <div class="sidebar-section"><div class="sidebar-label">Tags</div></div>
+      <div class="tag-cloud" id="tagCloud"></div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content-area">
+      <div class="content-toolbar">
+        <div>
+          <div class="view-label" id="viewLabel">All Saves</div>
+          <div class="view-sub" id="viewSub">loading…</div>
+        </div>
+        <select class="sort-select" id="sortSelect">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="project">By project</option>
+        </select>
+        <div class="view-toggle">
+          <button class="vt-btn active" id="masonryBtn">⊞</button>
+          <button class="vt-btn" id="listBtn">☰</button>
+        </div>
+        <button class="btn btn-ghost" id="exportBtn">export</button>
+      </div>
+      <div class="board-wrap" id="boardWrap">
+        <div class="empty-state" id="emptyState" style="display:none">
+          <div class="empty-glyph">✦</div>
+          <div class="empty-title">Nothing here yet</div>
+          <div class="empty-sub">Save links, images, and selections using the browser extension. They'll appear here automatically.</div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;height:200px;" id="loadingState">
+          <div class="spinner"></div>
+        </div>
+        <div class="masonry" id="masonryGrid" style="display:none"></div>
+        <div class="list-view" id="listGrid" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- CHAT -->
+    <div class="chat-panel" id="chatPanel">
+      <div class="chat-header">
+        <div><div class="chat-title">Ask your brain</div></div>
+        <button class="btn btn-icon" id="closeChatBtn" style="padding:4px 7px;font-size:11px;">✕</button>
+      </div>
+      <div class="chat-messages" id="chatMessages">
+        <div class="chat-msg ai">
+          <div class="bubble">Hey — I can see everything you've saved. Ask me anything about your research, projects, or ideas.</div>
+        </div>
+      </div>
+      <div class="chat-suggestions" id="chatSuggestions">
+        <button class="sugg-btn" data-q="What patterns do you see across everything I've saved?">What patterns do you see?</button>
+        <button class="sugg-btn" data-q="Summarize what I have for each project">Summarize by project</button>
+        <button class="sugg-btn" data-q="What should I explore next based on my saves?">What should I explore next?</button>
+      </div>
+      <div class="chat-input-wrap">
+        <textarea class="chat-input" id="chatInput" rows="2" placeholder="Ask anything…"></textarea>
+        <button class="chat-send" id="chatSend">↑</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- NEW PROJECT MODAL -->
+<div class="modal-overlay" id="projModal">
+  <div class="modal">
+    <div class="modal-title">New Project</div>
+    <div class="field">
+      <label>Project Name</label>
+      <input type="text" id="projName" placeholder="e.g. Bali Water, Client Pitch…" />
+    </div>
+    <div class="field">
+      <label>Keywords (comma separated)</label>
+      <input type="text" id="projKeywords" placeholder="water, packaging, product…" />
+    </div>
+    <div class="field">
+      <label>Color</label>
+      <div class="color-swatches" id="colorSwatches"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="cancelProjBtn">cancel</button>
+      <button class="btn btn-accent" id="saveProjBtn">create</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+const STORAGE_KEY = "sb_config";
+const SWATCHES = ["#c9a96e","#4a9eba","#c47fb0","#7ab87a","#9b8bc4","#ba6060","#6ab0b0","#c49060","#7a9aba","#b09060"];
+
+let supabase = null;
+let claudeKey = "";
+let items = [];
+let projects = [];
+let activeProject = "ALL";
+let activeTag = null;
+let searchQuery = "";
+let viewMode = "masonry";
+let sortMode = "newest";
+let chatOpen = true;
+let chatHistory = [];
+let selectedColor = SWATCHES[0];
+
+// ─── SETUP ────────────────────────────────────────────────────────────────────
+window.addEventListener("DOMContentLoaded", () => {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    try {
+      const cfg = JSON.parse(saved);
+      if (cfg.url && cfg.key) {
+        initSupabase(cfg.url, cfg.key, cfg.claudeKey);
+        return;
+      }
+    } catch {}
+  }
+  document.getElementById("setupScreen").style.display = "flex";
+});
+
+document.getElementById("setupBtn").addEventListener("click", async () => {
+  const url = document.getElementById("sbUrl").value.trim();
+  const key = document.getElementById("sbKey").value.trim();
+  const claude = document.getElementById("claudeKey").value.trim();
+  const errEl = document.getElementById("setupError");
+  const btn = document.getElementById("setupBtn");
+
+  if (!url || !key) { showSetupError("Please fill in your Supabase URL and Key."); return; }
+
+  btn.disabled = true;
+  btn.textContent = "connecting…";
+  errEl.style.display = "none";
+
+  try {
+    await initSupabase(url, key, claude);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ url, key, claudeKey: claude }));
+  } catch (err) {
+    showSetupError("Could not connect. Check your URL and Key and try again.\n" + err.message);
+    btn.disabled = false;
+    btn.textContent = "connect & enter →";
+  }
+});
+
+function showSetupError(msg) {
+  const el = document.getElementById("setupError");
+  el.textContent = msg; el.style.display = "block";
+}
+
+async function initSupabase(url, key, claude) {
+  supabase = window.supabase.createClient(url, key);
+  claudeKey = claude || "";
+
+  // Test connection + ensure tables exist
+  await ensureTables();
+
+  document.getElementById("setupScreen").style.display = "none";
+  document.getElementById("app").style.display = "flex";
+
+  await loadData();
+  renderAll();
+  setupRealtime();
+}
+
+async function ensureTables() {
+  // Try to read — if it fails, tables don't exist yet
+  const { error } = await supabase.from("items").select("id").limit(1);
+  if (error && error.code === "42P01") {
+    throw new Error("Tables not found. Run the SQL setup in Supabase first.");
+  }
+}
+
+// ─── DATA ─────────────────────────────────────────────────────────────────────
+async function loadData() {
+  document.getElementById("loadingState").style.display = "flex";
+
+  const [itemsRes, projsRes] = await Promise.all([
+    supabase.from("items").select("*").order("created_at", { ascending: false }),
+    supabase.from("projects").select("*").order("created_at", { ascending: true })
+  ]);
+
+  items = itemsRes.data || [];
+  projects = projsRes.data || [];
+
+  document.getElementById("loadingState").style.display = "none";
+}
+
+function setupRealtime() {
+  supabase.channel("public:items")
+    .on("postgres_changes", { event: "*", schema: "public", table: "items" }, async () => {
+      await loadData();
+      renderAll();
+    })
+    .subscribe();
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+function renderAll() {
+  renderSidebar();
+  renderTagCloud();
+  renderBoard();
+}
+
+function renderSidebar() {
+  const list = document.getElementById("projectList");
+  const allActive = activeProject === "ALL";
+
+  list.innerHTML = `
+    <div class="proj-item ${allActive?"active":""}" data-proj="ALL">
+      <div class="proj-dot" style="background:var(--text-muted)"></div>
+      <div class="proj-name">All Saves</div>
+      <div class="proj-count">${items.length}</div>
+    </div>
+    ${projects.map(p => {
+      const count = items.filter(i => i.project_id === p.id).length;
+      return `<div class="proj-item ${activeProject===p.id?"active":""}" data-proj="${p.id}">
+        <div class="proj-dot" style="background:${p.color}"></div>
+        <div class="proj-name">${p.name}</div>
+        <div class="proj-count">${count}</div>
+      </div>`;
+    }).join("")}
+    <div class="proj-item ${activeProject==="uncategorized"?"active":""}" data-proj="uncategorized">
+      <div class="proj-dot" style="background:var(--text-muted)"></div>
+      <div class="proj-name">Uncategorized</div>
+      <div class="proj-count">${items.filter(i=>!i.project_id).length}</div>
+    </div>
+  `;
+
+  list.querySelectorAll(".proj-item").forEach(el => {
+    el.addEventListener("click", () => {
+      activeProject = el.dataset.proj;
+      activeTag = null;
+      renderAll();
+    });
+  });
+}
+
+function renderTagCloud() {
+  const allTags = {};
+  items.forEach(item => (item.tags||[]).forEach(t => { allTags[t]=(allTags[t]||0)+1; }));
+  const sorted = Object.entries(allTags).sort((a,b)=>b[1]-a[1]).slice(0,24);
+
+  const cloud = document.getElementById("tagCloud");
+  cloud.innerHTML = sorted.map(([tag]) =>
+    `<div class="tag-pill ${activeTag===tag?"active":""}" data-tag="${tag}">${tag}</div>`
+  ).join("");
+
+  cloud.querySelectorAll(".tag-pill").forEach(el => {
+    el.addEventListener("click", () => {
+      activeTag = activeTag===el.dataset.tag ? null : el.dataset.tag;
+      renderAll();
+    });
+  });
+}
+
+function getFiltered() {
+  let filtered = [...items];
+
+  if (activeProject === "uncategorized") {
+    filtered = filtered.filter(i => !i.project_id);
+  } else if (activeProject !== "ALL") {
+    filtered = filtered.filter(i => i.project_id === activeProject);
+  }
+
+  if (activeTag) {
+    filtered = filtered.filter(i => (i.tags||[]).includes(activeTag));
+  }
+
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    filtered = filtered.filter(i =>
+      [i.title, i.summary, i.url, (i.tags||[]).join(" "), i.content].some(s => s&&s.toLowerCase().includes(q))
+    );
+  }
+
+  if (sortMode === "oldest") filtered.sort((a,b) => new Date(a.created_at)-new Date(b.created_at));
+  else if (sortMode === "project") filtered.sort((a,b) => (a.project_id||"").localeCompare(b.project_id||""));
+
+  return filtered;
+}
+
+function renderBoard() {
+  const filtered = getFiltered();
+  const empty = document.getElementById("emptyState");
+  const masonry = document.getElementById("masonryGrid");
+  const listEl = document.getElementById("listGrid");
+
+  const proj = projects.find(p=>p.id===activeProject);
+  document.getElementById("viewLabel").textContent =
+    activeProject==="ALL" ? "All Saves" :
+    activeProject==="uncategorized" ? "Uncategorized" :
+    proj?.name || activeProject;
+  document.getElementById("viewSub").textContent =
+    `${filtered.length} item${filtered.length!==1?"s":""}${activeTag?` · #${activeTag}`:""}`;
+
+  if (filtered.length === 0) {
+    empty.style.display = "flex";
+    masonry.style.display = "none";
+    listEl.style.display = "none";
+    return;
+  }
+
+  empty.style.display = "none";
+
+  if (viewMode === "masonry") {
+    masonry.style.display = "block"; listEl.style.display = "none";
+    masonry.innerHTML = filtered.map(renderCard).join("");
+  } else {
+    masonry.style.display = "none"; listEl.style.display = "flex";
+    listEl.innerHTML = filtered.map(renderListRow).join("");
+  }
+
+  bindActions();
+}
+
+function projColor(projId) { return projects.find(p=>p.id===projId)?.color || "#4a4540"; }
+function projName(projId) { return projects.find(p=>p.id===projId)?.name || (projId?"?":"Uncategorized"); }
+
+function timeAgo(ts) {
+  const d = Date.now() - new Date(ts).getTime();
+  const m = Math.floor(d/60000);
+  if (m<1) return "just now";
+  if (m<60) return `${m}m ago`;
+  const h = Math.floor(m/60);
+  if (h<24) return `${h}h ago`;
+  return `${Math.floor(h/24)}d ago`;
+}
+function domain(url) {
+  try { return new URL(url).hostname.replace("www.",""); } catch { return ""; }
+}
+
+function renderCard(item) {
+  const color = projColor(item.project_id);
+  const pName = projName(item.project_id);
+  const tags = (item.tags||[]).slice(0,4).map(t=>`<span class="card-tag">${t}</span>`).join("");
+
+  let visual = "";
+  if (item.type==="image") {
+    visual = `<div class="card-thumb" style="padding:0"><img class="full" src="${item.url}" loading="lazy" onerror="this.parentElement.innerHTML='<div style=padding:16px;display:flex;align-items:center;justify-content:center><span class=type-icon>🖼</span></div>'" /></div>`;
+  } else if (item.favicon) {
+    visual = `<div class="card-thumb"><img class="fav" src="${item.favicon}" onerror="this.style.display='none'" /></div>`;
+  } else {
+    visual = `<div class="card-thumb"><span class="type-icon">${item.type==="note"?"✎":"🔗"}</span></div>`;
+  }
+
+  const noteSnippet = item.type==="note"&&item.content
+    ? `<div class="card-summary">"${item.content.substring(0,120)}…"</div>` : "";
+  const summaryHtml = item.summary&&item.type!=="note"
+    ? `<div class="card-summary">${item.summary}</div>` : "";
+
+  return `
+    <div class="card" data-id="${item.id}" data-url="${item.url||""}">
+      ${visual}
+      <div class="card-body">
+        <div class="card-proj-bar">
+          <div class="card-proj-dot" style="background:${color}"></div>
+          <div class="card-proj-name">${pName}</div>
+        </div>
+        <div class="card-title">${item.title||"Untitled"}</div>
+        ${noteSnippet||summaryHtml}
+        ${tags?`<div class="card-tags">${tags}</div>`:""}
+        <div class="card-footer">
+          <span>${domain(item.url||"")}</span>
+          <span>${timeAgo(item.created_at)}</span>
+        </div>
+      </div>
+      <div class="card-actions">
+        ${item.url?`<button class="ca-btn open" data-url="${item.url}">↗</button>`:""}
+        <button class="ca-btn del" data-id="${item.id}">✕</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderListRow(item) {
+  const color = projColor(item.project_id);
+  const pName = projName(item.project_id);
+  const tags = (item.tags||[]).slice(0,3).map(t=>`<span class="list-tag">${t}</span>`).join("");
+  const icon = item.favicon
+    ? `<img src="${item.favicon}" onerror="this.outerHTML='<span>${item.type==="note"?"✎":"🔗"}</span>'" />`
+    : (item.type==="note"?"✎":"🔗");
+
+  return `
+    <div class="list-row" data-id="${item.id}" data-url="${item.url||""}">
+      <div class="list-icon">${icon}</div>
+      <div class="list-body">
+        <div class="list-title">${item.title||"Untitled"}</div>
+        ${item.summary?`<div class="list-sum">${item.summary}</div>`:""}
+        <div class="list-meta">
+          <div class="list-proj">
+            <div class="list-proj-dot" style="background:${color}"></div>
+            <div class="list-proj-name">${pName}</div>
+          </div>
+          ${tags}
+          <span class="list-time">${timeAgo(item.created_at)}</span>
+        </div>
+      </div>
+      <div class="list-actions">
+        ${item.url?`<button class="ca-btn open" data-url="${item.url}">↗</button>`:""}
+        <button class="ca-btn del" data-id="${item.id}">✕</button>
+      </div>
+    </div>
+  `;
+}
+
+function bindActions() {
+  document.querySelectorAll(".ca-btn.open").forEach(btn => {
+    btn.addEventListener("click", e => { e.stopPropagation(); window.open(btn.dataset.url, "_blank"); });
+  });
+  document.querySelectorAll(".ca-btn.del").forEach(btn => {
+    btn.addEventListener("click", async e => {
+      e.stopPropagation();
+      await supabase.from("items").delete().eq("id", btn.dataset.id);
+      items = items.filter(i => i.id !== btn.dataset.id);
+      renderAll();
+    });
+  });
+  document.querySelectorAll(".card[data-url], .list-row[data-url]").forEach(el => {
+    el.addEventListener("click", () => { if (el.dataset.url) window.open(el.dataset.url, "_blank"); });
+  });
+}
+
+// ─── CONTROLS ─────────────────────────────────────────────────────────────────
+document.getElementById("searchInput").addEventListener("input", e => { searchQuery=e.target.value; renderBoard(); });
+document.getElementById("sortSelect").addEventListener("change", e => { sortMode=e.target.value; renderBoard(); });
+document.getElementById("masonryBtn").addEventListener("click", () => {
+  viewMode="masonry";
+  document.getElementById("masonryBtn").classList.add("active");
+  document.getElementById("listBtn").classList.remove("active");
+  renderBoard();
+});
+document.getElementById("listBtn").addEventListener("click", () => {
+  viewMode="list";
+  document.getElementById("listBtn").classList.add("active");
+  document.getElementById("masonryBtn").classList.remove("active");
+  renderBoard();
+});
+document.getElementById("refreshBtn").addEventListener("click", async () => { await loadData(); renderAll(); });
+document.getElementById("disconnectBtn").addEventListener("click", () => {
+  if (!confirm("Disconnect from Supabase?")) return;
+  localStorage.removeItem(STORAGE_KEY);
+  location.reload();
+});
+document.getElementById("exportBtn").addEventListener("click", () => {
+  const filtered = getFiltered();
+  const text = filtered.map(i=>`${i.title}\n${i.url||i.content||""}\nTags: ${(i.tags||[]).join(", ")}`).join("\n\n---\n\n");
+  navigator.clipboard.writeText(text);
+  const btn = document.getElementById("exportBtn");
+  btn.textContent="copied!"; setTimeout(()=>btn.textContent="export",2000);
+});
+
+// ─── CHAT ─────────────────────────────────────────────────────────────────────
+document.getElementById("chatToggleBtn").addEventListener("click", () => toggleChat(!chatOpen));
+document.getElementById("closeChatBtn").addEventListener("click", () => toggleChat(false));
+
+function toggleChat(open) {
+  chatOpen = open;
+  document.getElementById("chatPanel").classList.toggle("collapsed", !open);
+  document.getElementById("chatToggleBtn").classList.toggle("active", open);
+}
+
+document.querySelectorAll(".sugg-btn").forEach(btn => {
+  btn.addEventListener("click", () => sendChat(btn.dataset.q));
+});
+document.getElementById("chatInput").addEventListener("keydown", e => {
+  if (e.key==="Enter"&&!e.shiftKey) { e.preventDefault(); sendChat(document.getElementById("chatInput").value); }
+});
+document.getElementById("chatSend").addEventListener("click", () => sendChat(document.getElementById("chatInput").value));
+
+async function sendChat(text) {
+  const msg = text.trim();
+  if (!msg||!claudeKey) {
+    if (!claudeKey) appendMsg("ai","No Claude API key set. Please reconnect and add your key.");
+    return;
+  }
+
+  document.getElementById("chatInput").value = "";
+  document.getElementById("chatSuggestions").style.display = "none";
+  document.getElementById("chatSend").disabled = true;
+  appendMsg("user", msg);
+  chatHistory.push({ role:"user", content:msg });
+
+  const context = items.slice(0,60).map(i =>
+    `[${projName(i.project_id)}] "${i.title}" — ${i.summary||""} Tags: ${(i.tags||[]).join(", ")}`
+  ).join("\n");
+
+  appendMsg("ai","…",true);
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-api-key":claudeKey,"anthropic-version":"2023-06-01"},
+      body: JSON.stringify({
+        model:"claude-sonnet-4-20250514", max_tokens:600,
+        system:`You are a second brain assistant. The user's saved items:\n\n${context}\n\nBe specific, reference actual saves, make useful connections. Be concise.`,
+        messages: chatHistory
+      })
+    });
+    const data = await res.json();
+    const reply = data.content?.[0]?.text || "Sorry, something went wrong.";
+    document.querySelector(".chat-msg.loading")?.remove();
+    chatHistory.push({ role:"assistant", content:reply });
+    appendMsg("ai", reply);
+  } catch {
+    document.querySelector(".chat-msg.loading")?.remove();
+    appendMsg("ai","Connection error. Check your API key.");
+  }
+
+  document.getElementById("chatSend").disabled = false;
+}
+
+function appendMsg(role, text, loading=false) {
+  const wrap = document.createElement("div");
+  wrap.className = `chat-msg ${role}${loading?" loading":""}`;
+  wrap.innerHTML = `<div class="bubble">${loading?'<span style="opacity:0.4">· · ·</span>':text.replace(/\n/g,"<br/>")}</div>`;
+  const msgs = document.getElementById("chatMessages");
+  msgs.appendChild(wrap);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ─── PROJECTS ─────────────────────────────────────────────────────────────────
+function renderSwatches() {
+  document.getElementById("colorSwatches").innerHTML = SWATCHES.map(c =>
+    `<div class="swatch ${selectedColor===c?"selected":""}" style="background:${c}" data-color="${c}"></div>`
+  ).join("");
+  document.querySelectorAll(".swatch").forEach(s => {
+    s.addEventListener("click", () => { selectedColor=s.dataset.color; renderSwatches(); });
+  });
+}
+
+document.getElementById("addProjBtn").addEventListener("click", () => {
+  renderSwatches();
+  document.getElementById("projModal").classList.add("open");
+  document.getElementById("projName").focus();
+});
+document.getElementById("cancelProjBtn").addEventListener("click", () => {
+  document.getElementById("projModal").classList.remove("open");
+});
+document.getElementById("saveProjBtn").addEventListener("click", async () => {
+  const name = document.getElementById("projName").value.trim();
+  const keywords = document.getElementById("projKeywords").value.split(",").map(k=>k.trim()).filter(Boolean);
+  if (!name) return;
+
+  const { data } = await supabase.from("projects").insert({
+    name, color: selectedColor, keywords
+  }).select().single();
+
+  if (data) projects.push(data);
+  document.getElementById("projModal").classList.remove("open");
+  document.getElementById("projName").value = "";
+  document.getElementById("projKeywords").value = "";
+  renderAll();
+});
+</script>
+</body>
+</html>
