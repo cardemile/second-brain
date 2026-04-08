@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -633,7 +634,7 @@ body {
 const STORAGE_KEY = "sb_config";
 const SWATCHES = ["#c9a96e","#4a9eba","#c47fb0","#7ab87a","#9b8bc4","#ba6060","#6ab0b0","#c49060","#7a9aba","#b09060"];
 
-let supabase = null;
+let sbClient = null;
 let claudeKey = "";
 let items = [];
 let projects = [];
@@ -690,7 +691,7 @@ function showSetupError(msg) {
 }
 
 async function initSupabase(url, key, claude) {
-  supabase = window.supabase.createClient(url, key);
+  sbClient = window.supabase.createClient(url, key);
   claudeKey = claude || "";
 
   // Test connection + ensure tables exist
@@ -706,7 +707,7 @@ async function initSupabase(url, key, claude) {
 
 async function ensureTables() {
   // Try to read — if it fails, tables don't exist yet
-  const { error } = await supabase.from("items").select("id").limit(1);
+  const { error } = await sbClient.from("items").select("id").limit(1);
   if (error) {
     console.warn("Table check warning:", error.message);
     // Only throw if it's clearly a missing table error
@@ -722,8 +723,8 @@ async function loadData() {
   document.getElementById("loadingState").style.display = "flex";
 
   const [itemsRes, projsRes] = await Promise.all([
-    supabase.from("items").select("*").order("created_at", { ascending: false }),
-    supabase.from("projects").select("*").order("created_at", { ascending: true })
+    sbClient.from("items").select("*").order("created_at", { ascending: false }),
+    sbClient.from("projects").select("*").order("created_at", { ascending: true })
   ]);
 
   items = itemsRes.data || [];
@@ -733,7 +734,7 @@ async function loadData() {
 }
 
 function setupRealtime() {
-  supabase.channel("public:items")
+  sbClient.channel("public:items")
     .on("postgres_changes", { event: "*", schema: "public", table: "items" }, async () => {
       await loadData();
       renderAll();
@@ -957,7 +958,7 @@ function bindActions() {
   document.querySelectorAll(".ca-btn.del").forEach(btn => {
     btn.addEventListener("click", async e => {
       e.stopPropagation();
-      await supabase.from("items").delete().eq("id", btn.dataset.id);
+      await sbClient.from("items").delete().eq("id", btn.dataset.id);
       items = items.filter(i => i.id !== btn.dataset.id);
       renderAll();
     });
@@ -1088,7 +1089,7 @@ document.getElementById("saveProjBtn").addEventListener("click", async () => {
   const keywords = document.getElementById("projKeywords").value.split(",").map(k=>k.trim()).filter(Boolean);
   if (!name) return;
 
-  const { data } = await supabase.from("projects").insert({
+  const { data } = await sbClient.from("projects").insert({
     name, color: selectedColor, keywords
   }).select().single();
 
