@@ -707,8 +707,13 @@ async function initSupabase(url, key, claude) {
 async function ensureTables() {
   // Try to read — if it fails, tables don't exist yet
   const { error } = await supabase.from("items").select("id").limit(1);
-  if (error && error.code === "42P01") {
-    throw new Error("Tables not found. Run the SQL setup in Supabase first.");
+  if (error) {
+    console.warn("Table check warning:", error.message);
+    // Only throw if it's clearly a missing table error
+    if (error.code === "42P01" || error.message.includes("does not exist")) {
+      throw new Error("Tables not found. Run the SQL setup in Supabase first.");
+    }
+    // For other errors (like RLS), continue anyway
   }
 }
 
