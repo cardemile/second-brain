@@ -1017,10 +1017,7 @@ document.getElementById("chatSend").addEventListener("click", () => sendChat(doc
 
 async function sendChat(text) {
   const msg = text.trim();
-  if (!msg||!claudeKey) {
-    if (!claudeKey) appendMsg("ai","No Claude API key set. Please reconnect and add your key.");
-    return;
-  }
+  if (!msg) return;
 
   document.getElementById("chatInput").value = "";
   document.getElementById("chatSuggestions").style.display = "none";
@@ -1039,19 +1036,20 @@ async function sendChat(text) {
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body: JSON.stringify({
-        apiKey: claudeKey,
         system:`You are a second brain assistant. The user's saved items:\n\n${context}\n\nBe specific, reference actual saves, make useful connections. Be concise.`,
         messages: chatHistory
       })
     });
     const data = await res.json();
-    const reply = data.content?.[0]?.text || "Sorry, something went wrong.";
+    console.log("Chat response:", JSON.stringify(data));
+    const reply = data.content?.[0]?.text || data.error || "Sorry, something went wrong.";
     document.querySelector(".chat-msg.loading")?.remove();
     chatHistory.push({ role:"assistant", content:reply });
     appendMsg("ai", reply);
-  } catch {
+  } catch(err) {
+    console.error("Chat error:", err);
     document.querySelector(".chat-msg.loading")?.remove();
-    appendMsg("ai","Connection error. Check your API key.");
+    appendMsg("ai","Connection error: " + err.message);
   }
 
   document.getElementById("chatSend").disabled = false;
