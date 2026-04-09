@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -199,10 +198,19 @@ body {
 .proj-item {
   display: flex; align-items: center; gap: 8px;
   padding: 7px 10px; border-radius: 4px;
-  cursor: pointer; transition: background 0.12s; margin-bottom: 2px;
+  cursor: pointer; transition: background 0.12s, border-color 0.12s; margin-bottom: 2px;
+  border: 1px solid transparent;
 }
 .proj-item:hover { background: var(--card); }
 .proj-item.active { background: var(--accent-glow); }
+
+/* drag-over highlight for drop targets */
+.proj-item.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+  box-shadow: 0 0 0 1px var(--accent-dim);
+}
+
 .proj-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .proj-name { flex: 1; font-size: 11px; color: var(--text-dim); }
 .proj-item.active .proj-name { color: var(--text); }
@@ -275,14 +283,19 @@ body {
 .card {
   break-inside: avoid; margin-bottom: 12px;
   background: var(--card); border: 1px solid var(--border);
-  border-radius: 6px; overflow: hidden; cursor: pointer;
-  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  border-radius: 6px; overflow: hidden; cursor: grab;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s, opacity 0.15s;
   position: relative; display: block;
   animation: fadeUp 0.3s ease forwards;
 }
 .card:hover {
   border-color: var(--accent-dim); transform: translateY(-2px);
   box-shadow: 0 8px 28px rgba(0,0,0,0.4);
+}
+.card.dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+  transform: scale(0.98);
 }
 
 @keyframes fadeUp {
@@ -337,16 +350,28 @@ body {
 .ca-btn:hover { border-color: var(--danger); color: #c47070; }
 .ca-btn.open:hover { border-color: var(--accent-dim); color: var(--accent); }
 
+/* drag hint tooltip */
+.drag-hint {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  background: var(--surface); border: 1px solid var(--accent-dim);
+  color: var(--text-dim); font-size: 10px; padding: 7px 14px;
+  border-radius: 20px; pointer-events: none;
+  opacity: 0; transition: opacity 0.2s;
+  z-index: 999;
+}
+.drag-hint.visible { opacity: 1; }
+
 /* List view */
 .list-view { display: flex; flex-direction: column; gap: 6px; }
 .list-row {
   background: var(--card); border: 1px solid var(--border);
   border-radius: 5px; padding: 12px 14px;
   display: flex; gap: 12px; align-items: flex-start;
-  cursor: pointer; transition: border-color 0.12s; position: relative;
+  cursor: grab; transition: border-color 0.12s, opacity 0.15s; position: relative;
   animation: fadeUp 0.2s ease forwards;
 }
 .list-row:hover { border-color: var(--accent-dim); }
+.list-row.dragging { opacity: 0.4; cursor: grabbing; }
 .list-icon {
   width: 32px; height: 32px; border-radius: 4px;
   background: var(--surface); display: flex; align-items: center;
@@ -474,6 +499,18 @@ body {
   animation: spin 0.8s linear infinite; display: inline-block;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* toast notification */
+.toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--surface); border: 1px solid var(--accent-dim);
+  color: var(--text); font-size: 11px; padding: 10px 16px;
+  border-radius: 5px; z-index: 9999;
+  opacity: 0; transform: translateY(8px);
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
 </style>
 </head>
 <body>
@@ -629,6 +666,12 @@ body {
   </div>
 </div>
 
+<!-- DRAG HINT -->
+<div class="drag-hint" id="dragHint">Drop onto a project to move it</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
 <script>
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const STORAGE_KEY = "sb_config";
@@ -646,6 +689,9 @@ let sortMode = "newest";
 let chatOpen = true;
 let chatHistory = [];
 let selectedColor = SWATCHES[0];
+
+// drag state
+let dragItemId = null;
 
 // ─── SETUP ────────────────────────────────────────────────────────────────────
 window.addEventListener("DOMContentLoaded", () => {
@@ -693,43 +739,33 @@ function showSetupError(msg) {
 async function initSupabase(url, key, claude) {
   sbClient = window.supabase.createClient(url, key);
   claudeKey = claude || "";
-
-  // Test connection + ensure tables exist
   await ensureTables();
-
   document.getElementById("setupScreen").style.display = "none";
   document.getElementById("app").style.display = "flex";
-
   await loadData();
   renderAll();
   setupRealtime();
 }
 
 async function ensureTables() {
-  // Try to read — if it fails, tables don't exist yet
   const { error } = await sbClient.from("items").select("id").limit(1);
   if (error) {
     console.warn("Table check warning:", error.message);
-    // Only throw if it's clearly a missing table error
     if (error.code === "42P01" || error.message.includes("does not exist")) {
       throw new Error("Tables not found. Run the SQL setup in Supabase first.");
     }
-    // For other errors (like RLS), continue anyway
   }
 }
 
 // ─── DATA ─────────────────────────────────────────────────────────────────────
 async function loadData() {
   document.getElementById("loadingState").style.display = "flex";
-
   const [itemsRes, projsRes] = await Promise.all([
     sbClient.from("items").select("*").order("created_at", { ascending: false }),
     sbClient.from("projects").select("*").order("created_at", { ascending: true })
   ]);
-
   items = itemsRes.data || [];
   projects = projsRes.data || [];
-
   document.getElementById("loadingState").style.display = "none";
 }
 
@@ -761,24 +797,58 @@ function renderSidebar() {
     </div>
     ${projects.map(p => {
       const count = items.filter(i => i.project_id === p.id).length;
-      return `<div class="proj-item ${activeProject===p.id?"active":""}" data-proj="${p.id}">
+      return `<div class="proj-item ${activeProject===p.id?"active":""}" data-proj="${p.id}" data-proj-id="${p.id}">
         <div class="proj-dot" style="background:${p.color}"></div>
         <div class="proj-name">${p.name}</div>
         <div class="proj-count">${count}</div>
       </div>`;
     }).join("")}
-    <div class="proj-item ${activeProject==="uncategorized"?"active":""}" data-proj="uncategorized">
+    <div class="proj-item ${activeProject==="uncategorized"?"active":""}" data-proj="uncategorized" data-proj-id="uncategorized">
       <div class="proj-dot" style="background:var(--text-muted)"></div>
       <div class="proj-name">Uncategorized</div>
       <div class="proj-count">${items.filter(i=>!i.project_id).length}</div>
     </div>
   `;
 
+  // click to filter
   list.querySelectorAll(".proj-item").forEach(el => {
     el.addEventListener("click", () => {
       activeProject = el.dataset.proj;
       activeTag = null;
       renderAll();
+    });
+  });
+
+  // drag-and-drop: drop targets on project items (except All Saves)
+  list.querySelectorAll(".proj-item[data-proj-id]").forEach(el => {
+    el.addEventListener("dragover", e => {
+      if (!dragItemId) return;
+      e.preventDefault();
+      el.classList.add("drag-over");
+    });
+    el.addEventListener("dragleave", () => {
+      el.classList.remove("drag-over");
+    });
+    el.addEventListener("drop", async e => {
+      e.preventDefault();
+      el.classList.remove("drag-over");
+      if (!dragItemId) return;
+
+      const targetProjId = el.dataset.projId === "uncategorized" ? null : el.dataset.projId;
+      const targetProjName = el.dataset.projId === "uncategorized"
+        ? "Uncategorized"
+        : projects.find(p => p.id === el.dataset.projId)?.name || "?";
+
+      await sbClient.from("items").update({ project_id: targetProjId }).eq("id", dragItemId);
+
+      // update local state immediately
+      const item = items.find(i => i.id === dragItemId);
+      if (item) item.project_id = targetProjId;
+
+      dragItemId = null;
+      hideDragHint();
+      renderAll();
+      showToast(`Moved to ${targetProjName}`);
     });
   });
 }
@@ -803,27 +873,20 @@ function renderTagCloud() {
 
 function getFiltered() {
   let filtered = [...items];
-
   if (activeProject === "uncategorized") {
     filtered = filtered.filter(i => !i.project_id);
   } else if (activeProject !== "ALL") {
     filtered = filtered.filter(i => i.project_id === activeProject);
   }
-
-  if (activeTag) {
-    filtered = filtered.filter(i => (i.tags||[]).includes(activeTag));
-  }
-
+  if (activeTag) filtered = filtered.filter(i => (i.tags||[]).includes(activeTag));
   if (searchQuery) {
     const q = searchQuery.toLowerCase();
     filtered = filtered.filter(i =>
       [i.title, i.summary, i.url, (i.tags||[]).join(" "), i.content].some(s => s&&s.toLowerCase().includes(q))
     );
   }
-
   if (sortMode === "oldest") filtered.sort((a,b) => new Date(a.created_at)-new Date(b.created_at));
   else if (sortMode === "project") filtered.sort((a,b) => (a.project_id||"").localeCompare(b.project_id||""));
-
   return filtered;
 }
 
@@ -859,6 +922,7 @@ function renderBoard() {
   }
 
   bindActions();
+  bindDragEvents();
 }
 
 function projColor(projId) { return projects.find(p=>p.id===projId)?.color || "#4a4540"; }
@@ -897,7 +961,7 @@ function renderCard(item) {
     ? `<div class="card-summary">${item.summary}</div>` : "";
 
   return `
-    <div class="card" data-id="${item.id}" data-url="${item.url||""}">
+    <div class="card" data-id="${item.id}" data-url="${item.url||""}" draggable="true">
       ${visual}
       <div class="card-body">
         <div class="card-proj-bar">
@@ -929,7 +993,7 @@ function renderListRow(item) {
     : (item.type==="note"?"✎":"🔗");
 
   return `
-    <div class="list-row" data-id="${item.id}" data-url="${item.url||""}">
+    <div class="list-row" data-id="${item.id}" data-url="${item.url||""}" draggable="true">
       <div class="list-icon">${icon}</div>
       <div class="list-body">
         <div class="list-title">${item.title||"Untitled"}</div>
@@ -966,6 +1030,41 @@ function bindActions() {
   document.querySelectorAll(".card[data-url], .list-row[data-url]").forEach(el => {
     el.addEventListener("click", () => { if (el.dataset.url) window.open(el.dataset.url, "_blank"); });
   });
+}
+
+// ─── DRAG AND DROP ────────────────────────────────────────────────────────────
+function bindDragEvents() {
+  document.querySelectorAll(".card[draggable], .list-row[draggable]").forEach(el => {
+    el.addEventListener("dragstart", e => {
+      dragItemId = el.dataset.id;
+      el.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", dragItemId);
+      showDragHint();
+    });
+    el.addEventListener("dragend", () => {
+      el.classList.remove("dragging");
+      dragItemId = null;
+      hideDragHint();
+      // remove any stale drag-over highlights
+      document.querySelectorAll(".proj-item.drag-over").forEach(p => p.classList.remove("drag-over"));
+    });
+  });
+}
+
+function showDragHint() {
+  document.getElementById("dragHint").classList.add("visible");
+}
+function hideDragHint() {
+  document.getElementById("dragHint").classList.remove("visible");
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2500);
 }
 
 // ─── CONTROLS ─────────────────────────────────────────────────────────────────
@@ -1041,13 +1140,11 @@ async function sendChat(text) {
       })
     });
     const data = await res.json();
-    console.log("Chat response:", JSON.stringify(data));
     const reply = data.content?.[0]?.text || data.error || "Sorry, something went wrong.";
     document.querySelector(".chat-msg.loading")?.remove();
     chatHistory.push({ role:"assistant", content:reply });
     appendMsg("ai", reply);
   } catch(err) {
-    console.error("Chat error:", err);
     document.querySelector(".chat-msg.loading")?.remove();
     appendMsg("ai","Connection error: " + err.message);
   }
@@ -1058,7 +1155,8 @@ async function sendChat(text) {
 function appendMsg(role, text, loading=false) {
   const wrap = document.createElement("div");
   wrap.className = `chat-msg ${role}${loading?" loading":""}`;
-  wrap.innerHTML = `<div class="bubble">${loading?'<span style="opacity:0.4">· · ·</span>':text.replace(/\n/g,"<br/>")}</div>`;
+  const safeText = typeof text === "string" ? text : JSON.stringify(text);
+  wrap.innerHTML = `<div class="bubble">${loading?'<span style="opacity:0.4">· · ·</span>':safeText.replace(/\n/g,"<br/>")}</div>`;
   const msgs = document.getElementById("chatMessages");
   msgs.appendChild(wrap);
   msgs.scrollTop = msgs.scrollHeight;
