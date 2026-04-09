@@ -1035,11 +1035,11 @@ async function sendChat(text) {
   appendMsg("ai","…",true);
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch("/api/chat", {
       method:"POST",
-      headers:{"Content-Type":"application/json","x-api-key":claudeKey,"anthropic-version":"2023-06-01"},
+      headers:{"Content-Type":"application/json"},
       body: JSON.stringify({
-        model:"claude-sonnet-4-20250514", max_tokens:600,
+        apiKey: claudeKey,
         system:`You are a second brain assistant. The user's saved items:\n\n${context}\n\nBe specific, reference actual saves, make useful connections. Be concise.`,
         messages: chatHistory
       })
