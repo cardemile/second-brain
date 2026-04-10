@@ -609,22 +609,43 @@ document.querySelectorAll(".sugg-btn").forEach(btn=>{btn.addEventListener("click
 document.getElementById("chatInput").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat(document.getElementById("chatInput").value);}});
 document.getElementById("chatSend").addEventListener("click",()=>sendChat(document.getElementById("chatInput").value));
 
-async function sendChat(text){
-  const msg=text.trim();if(!msg)return;
-  document.getElementById("chatInput").value="";
-  document.getElementById("chatSuggestions").style.display="none";
-  document.getElementById("chatSend").disabled=true;
-  appendMsg("user",msg);chatHistory.push({role:"user",content:msg});
-  const context=items.slice(0,60).map(i=>`[${projName(i.project_id)}] "${i.title}" — ${i.summary||""} Tags: ${(i.tags||[]).join(", ")}`).join("\n");
-  appendMsg("ai","…",true);
-  try{
-    const res=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system:`You are a Moodbase assistant. The user's saved items:\n\n${context}\n\nBe specific, reference actual saves, make useful connections. Be concise.`,messages:chatHistory})});
-    const data=await res.json();
-    const reply=data.content?.[0]?.text||data.error||"Sorry, something went wrong.";
+async function sendChat(msg) {
+  msg = (msg || document.getElementById("chatInput").value).trim();
+  if (!msg) return;
+
+  document.getElementById("chatInput").value = "";
+  document.getElementById("chatSuggestions").style.display = "none";
+  document.getElementById("chatSend").disabled = true;
+
+  appendMsg("user", msg);
+  chatHistory.push({ role: "user", content: msg });
+  appendMsg("ai", "· · ·", true);
+
+  try {
+    const body = {
+      messages: chatHistory,
+      query: msg,
+      projectFilter: activeProject !== "ALL" ? activeProject : null,
+    };
+
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    const data = await res.json();
+    const reply = data.content?.[0]?.text || data.error || "Sorry, something went wrong.";
+
     document.querySelector(".chat-msg.loading")?.remove();
-    chatHistory.push({role:"assistant",content:reply});appendMsg("ai",reply);
-  }catch(err){document.querySelector(".chat-msg.loading")?.remove();appendMsg("ai","Connection error: "+err.message);}
-  document.getElementById("chatSend").disabled=false;
+    chatHistory.push({ role: "assistant", content: reply });
+    appendMsg("ai", reply);
+  } catch (err) {
+    document.querySelector(".chat-msg.loading")?.remove();
+    appendMsg("ai", "Connection error: " + err.message);
+  }
+
+  document.getElementById("chatSend").disabled = false;
 }
 
 function appendMsg(role,text,loading=false){
