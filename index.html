@@ -673,8 +673,9 @@ async function sendChat(msg) {
 function appendMsg(role,text,loading=false){
   const wrap=document.createElement("div");
   wrap.className=`chat-msg ${role}${loading?" loading":""}`;
-  const safeText=typeof text==="string"?text:JSON.stringify(text);
-  wrap.innerHTML=`<div class="bubble">${loading?'<span style="opacity:0.4">· · ·</span>':safeText.replace(/\n/g,"<br/>")}</div>`;
+ const safeText=typeof text==="string"?text:JSON.stringify(text);
+const formatted=safeText.replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>").replace(/^[-–]\s/gm,"").replace(/\n/g,"<br/>");
+wrap.innerHTML=`<div class="bubble">${loading?'<span style="opacity:0.4">· · ·</span>':formatted}</div>`;
   const msgs=document.getElementById("chatMessages");msgs.appendChild(wrap);msgs.scrollTop=msgs.scrollHeight;
 }
 
