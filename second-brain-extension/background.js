@@ -65,15 +65,18 @@ projectId = await resolveProjectId(aiResult.project, projects);
 tags = aiResult.tags || [];
 summary = aiResult.summary || "";
 
-    await sbInsert("items", {
+  await sbInsert("items", {
       type: raw.type || "link",
       url: raw.url || null,
       title: raw.title || "Untitled",
       content: raw.content || null,
-      summary, tags,
+      summary,
+      tags,
       favicon: raw.favicon || "",
       source_url: raw.sourceUrl || raw.url || "",
-      project_id: projectId
+      project_id: projectId,
+      visual_description: aiResult.visual_description || null,
+      embedding: aiResult.embedding || null,
     });
 
     if (tabId) {
