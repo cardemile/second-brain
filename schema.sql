@@ -1,4 +1,4 @@
--- ─── SECOND BRAIN — Supabase Schema ─────────────────────────────────────────
+-- ─── Moodbase — Supabase Schema ─────────────────────────────────────────
 -- Run this in Supabase → SQL Editor → New Query → Run
 
 -- Projects table

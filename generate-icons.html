@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Icon Generator</title>
+<style>
+  body { font-family: system-ui; padding: 40px; background: #f5f5f5; }
+  canvas { border: 1px solid #ddd; margin: 10px; border-radius: 8px; }
+  .btn { display: inline-block; margin: 8px 4px; padding: 10px 20px; background: #1A1714; color: white; border-radius: 8px; cursor: pointer; text-decoration: none; font-size: 13px; }
+  .btn:hover { background: #3D3830; }
+  h2 { margin-bottom: 4px; }
+  .sub { color: #888; font-size: 13px; margin-bottom: 24px; }
+</style>
+</head>
+<body>
+<h2>Moodbase — Icon Generator</h2>
+<p class="sub">Click each button to download the icon at the right size. Save all three into your extension's <code>icons/</code> folder.</p>
+
+<div id="previews"></div>
+<div id="buttons"></div>
+
+<script>
+function drawIcon(size) {
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  const s = size / 128;
+
+  // background
+  const radius = 28 * s;
+  ctx.beginPath();
+  ctx.moveTo(radius, 0);
+  ctx.lineTo(size - radius, 0);
+  ctx.quadraticCurveTo(size, 0, size, radius);
+  ctx.lineTo(size, size - radius);
+  ctx.quadraticCurveTo(size, size, size - radius, size);
+  ctx.lineTo(radius, size);
+  ctx.quadraticCurveTo(0, size, 0, size - radius);
+  ctx.lineTo(0, radius);
+  ctx.quadraticCurveTo(0, 0, radius, 0);
+  ctx.closePath();
+  ctx.fillStyle = "#0D1117";
+  ctx.fill();
+
+  // clip to rounded rect
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(radius, 0);
+  ctx.lineTo(size - radius, 0);
+  ctx.quadraticCurveTo(size, 0, size, radius);
+  ctx.lineTo(size, size - radius);
+  ctx.quadraticCurveTo(size, size, size - radius, size);
+  ctx.lineTo(radius, size);
+  ctx.quadraticCurveTo(0, size, 0, size - radius);
+  ctx.lineTo(0, radius);
+  ctx.quadraticCurveTo(0, 0, radius, 0);
+  ctx.closePath();
+  ctx.clip();
+
+  // star positions (normalized to 128)
+  const stars = [
+    { x: 64, y: 22, r: 3.5, bright: true },
+    { x: 38, y: 52, r: 2.8, bright: false },
+    { x: 55, y: 82, r: 3.0, bright: true },
+    { x: 88, y: 90, r: 2.5, bright: false },
+    { x: 100, y: 62, r: 4.0, bright: true, gold: true },
+  ];
+
+  const connections = [
+    [0,1],[1,2],[2,3],[3,4],[4,0],[4,2],[1,3]
+  ];
+
+  // background micro stars
+  const microStars = [
+    {x:20,y:18,r:0.8,o:0.4},{x:108,y:14,r:0.6,o:0.3},
+    {x:15,y:95,r:0.7,o:0.35},{x:112,y:108,r:0.5,o:0.3},
+    {x:30,y:110,r:0.6,o:0.25},{x:90,y:20,r:0.5,o:0.3},
+    {x:18,y:65,r:0.4,o:0.2},{x:75,y:44,r:1.2,o:0.5},
+    {x:48,y:105,r:1.0,o:0.4},{x:22,y:35,r:0.5,o:0.2},
+    {x:105,y:40,r:0.6,o:0.25},{x:10,y:50,r:0.4,o:0.15},
+  ];
+
+  if (size >= 48) {
+    microStars.forEach(ms => {
+      ctx.beginPath();
+      ctx.arc(ms.x * s, ms.y * s, ms.r * s, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(232, 220, 200, ${ms.o})`;
+      ctx.fill();
+    });
+  }
+
+  // constellation lines
+  const lineOpacities = [0.5,0.5,0.5,0.5,0.5,0.4,0.3];
+  connections.forEach(([a,b], i) => {
+    ctx.beginPath();
+    ctx.moveTo(stars[a].x * s, stars[a].y * s);
+    ctx.lineTo(stars[b].x * s, stars[b].y * s);
+    ctx.strokeStyle = `rgba(196, 168, 130, ${lineOpacities[i]})`;
+    ctx.lineWidth = 0.8 * s;
+    ctx.stroke();
+  });
+
+  // stars
+  stars.forEach(star => {
+    // outer glow ring
+    if (size >= 48) {
+      ctx.beginPath();
+      ctx.arc(star.x * s, star.y * s, star.r * s * 1.6, 0, Math.PI * 2);
+      ctx.fillStyle = star.gold ? "rgba(196,168,130,0.15)" : "rgba(245,236,216,0.08)";
+      ctx.fill();
+    }
+
+    // main star body
+    ctx.beginPath();
+    ctx.arc(star.x * s, star.y * s, star.r * s, 0, Math.PI * 2);
+    ctx.fillStyle = star.gold ? "#C4A882" : "#F0E4C8";
+    ctx.fill();
+
+    // bright center
+    ctx.beginPath();
+    ctx.arc(star.x * s, star.y * s, star.r * s * 0.5, 0, Math.PI * 2);
+    ctx.fillStyle = star.gold ? "#F5ECD8" : "white";
+    ctx.fill();
+  });
+
+  // ✦ mark at bottom (only for larger sizes)
+  if (size >= 48) {
+    ctx.font = `${10 * s}px system-ui`;
+    ctx.fillStyle = "rgba(196, 168, 130, 0.8)";
+    ctx.textAlign = "center";
+    ctx.fillText("✦", 64 * s, 118 * s);
+  }
+
+  ctx.restore();
+  return canvas;
+}
+
+const sizes = [128, 48, 16];
+const previews = document.getElementById("previews");
+const buttons = document.getElementById("buttons");
+
+sizes.forEach(size => {
+  const canvas = drawIcon(size);
+  canvas.title = `${size}x${size}`;
+
+  const label = document.createElement("div");
+  label.style.display = "inline-block";
+  label.style.textAlign = "center";
+  label.style.margin = "0 16px 16px 0";
+  label.style.verticalAlign = "top";
+
+  const sizeLabel = document.createElement("div");
+  sizeLabel.textContent = `${size}×${size}`;
+  sizeLabel.style.fontSize = "11px";
+  sizeLabel.style.color = "#888";
+  sizeLabel.style.marginBottom = "6px";
+
+  label.appendChild(sizeLabel);
+  label.appendChild(canvas);
+  previews.appendChild(label);
+
+  const btn = document.createElement("a");
+  btn.className = "btn";
+  btn.textContent = `Download icon${size}.png`;
+  btn.href = canvas.toDataURL("image/png");
+  btn.download = `icon${size}.png`;
+  buttons.appendChild(btn);
+});
+</script>
+</body>
+</html>

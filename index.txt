@@ -1,0 +1,15 @@
+✦ Moodbase
+connect your database to get started
+Supabase Setup
+SUPABASE URL
+SUPABASE ANON KEY
+Find both at supabase.com/dashboard → your project → Settings → API
+CLAUDE API KEY
+From console.anthropic.com → API Keys. Stored in your browser only.
+connect & enter →
+New Project
+PROJECT NAME
+KEYWORDS (COMMA SEPARATED)
+COLOR
+cancel
+create

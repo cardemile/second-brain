@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Moodbase</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0e0d0b;
+    --surface: #161410;
+    --card: #1c1a17;
+    --border: #2c2924;
+    --accent: #c9a96e;
+    --accent-dim: #8b6f44;
+    --text: #e8e0d0;
+    --text-dim: #7a7168;
+    --text-muted: #4a4540;
+  }
+
+  body {
+    width: 340px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+  }
+
+  .header {
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 18px;
+    font-weight: 300;
+    letter-spacing: 0.06em;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .logo-mark {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    color: #0e0d0b;
+  }
+
+  .open-dashboard {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 3px;
+    transition: color 0.15s;
+    font-family: 'DM Mono', monospace;
+  }
+  .open-dashboard:hover { color: var(--accent); }
+
+  .current-page {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .page-label {
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+  }
+
+  .page-info {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .page-favicon {
+    width: 16px;
+    height: 16px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .page-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 13px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+  }
+
+  .save-section {
+    padding: 14px 18px;
+  }
+
+  .field-label {
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+  }
+
+  textarea {
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 13px;
+    font-style: italic;
+    padding: 9px 11px;
+    border-radius: 3px;
+    outline: none;
+    resize: none;
+    line-height: 1.5;
+    transition: border-color 0.15s;
+    margin-bottom: 10px;
+  }
+  textarea:focus { border-color: var(--accent-dim); }
+  textarea::placeholder { color: var(--text-muted); }
+
+  .project-hint {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    font-style: italic;
+  }
+
+  .project-hint span {
+    color: var(--accent);
+  }
+
+  .save-btn {
+    width: 100%;
+    background: var(--accent);
+    color: #0e0d0b;
+    border: none;
+    padding: 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .save-btn:hover { background: #dbb97e; }
+  .save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0 18px;
+  }
+
+  .recent-section {
+    padding: 12px 18px 14px;
+  }
+
+  .recent-label {
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+
+  .recent-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .recent-item:last-child { border-bottom: none; }
+
+  .recent-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .recent-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 12px;
+    color: var(--text-dim);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .recent-project {
+    font-size: 9px;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+
+  .processing-pulse {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 1.2s ease infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.3; transform: scale(0.7); }
+  }
+
+  .setup-notice {
+    margin: 12px 18px;
+    background: rgba(201,169,110,0.08);
+    border: 1px solid rgba(201,169,110,0.2);
+    border-radius: 3px;
+    padding: 10px 12px;
+    font-size: 10px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+  .setup-notice a {
+    color: var(--accent);
+    cursor: pointer;
+    text-decoration: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">
+    <div class="logo-mark">✦</div>
+    Moodbase
+  </div>
+  <button class="open-dashboard" id="openDashboard">dashboard ↗</button>
+</div>
+
+<div class="current-page" id="currentPage">
+  <div class="page-label">Current Page</div>
+  <div class="page-info">
+    <img class="page-favicon" id="pageFavicon" src="" alt="" onerror="this.style.display='none'" />
+    <div class="page-title" id="pageTitle">Loading…</div>
+  </div>
+</div>
+
+<div class="save-section">
+  <div class="field-label">Note (optional)</div>
+  <textarea id="noteInput" rows="2" placeholder="Why are you saving this? What caught your eye…"></textarea>
+
+  <div class="project-hint" id="projectHint">AI will sort this automatically ✦</div>
+
+  <button class="btn save-btn" id="saveBtn">
+    <span>save to Moodbase</span>
+  </button>
+</div>
+
+<hr class="divider" />
+
+<div id="apiKeyNotice" style="display:none">
+  <div class="setup-notice">
+    Add your Claude API key in the <a id="goToDashboard">dashboard</a> to enable AI sorting.
+  </div>
+</div>
+
+<div class="recent-section" id="recentSection">
+  <div class="recent-label">Recently Saved</div>
+  <div id="recentList"></div>
+</div>
+
+<script>
+const PROJECT_COLORS = {
+  "bali-water": "#4a9eba",
+  "modern-women": "#c47fb0",
+  "bali-prime": "#7ab87a",
+  "brand-identity": "#c9a96e",
+  "content-strategy": "#9b8bc4",
+  "general": "#4a4540"
+};
+
+let currentTab = null;
+let projects = [];
+
+async function init() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  currentTab = tab;
+
+  document.getElementById("pageTitle").textContent = tab.title || tab.url;
+  if (tab.favIconUrl) document.getElementById("pageFavicon").src = tab.favIconUrl;
+
+  const state = await new Promise(res => chrome.runtime.sendMessage({ action: "getState" }, res));
+  projects = state.projects || [];
+
+  const apiKey = await new Promise(res => chrome.storage.local.get(["apiKey"], r => res(r.apiKey)));
+  if (!apiKey) {
+    document.getElementById("apiKeyNotice").style.display = "block";
+    document.getElementById("projectHint").textContent = "No API key — will save without AI sorting";
+  }
+
+  renderRecent(state.items || []);
+}
+
+function renderRecent(items) {
+  const container = document.getElementById("recentList");
+  const recent = items.slice(0, 4);
+
+  if (!recent.length) {
+    container.innerHTML = `<div style="color:var(--text-muted);font-size:10px;font-style:italic;">Nothing saved yet</div>`;
+    return;
+  }
+
+  container.innerHTML = recent.map(item => {
+    const proj = projects.find(p => p.id === item.project);
+    const color = proj?.color || PROJECT_COLORS[item.project] || "#4a4540";
+    const processing = item.processing;
+
+    return `
+      <div class="recent-item">
+        ${processing
+          ? `<span class="processing-pulse"></span>`
+          : `<div class="recent-dot" style="background:${color}"></div>`}
+        <div class="recent-title">${item.title || "Untitled"}</div>
+        <div class="recent-project">${processing ? "processing…" : (proj?.name || item.project || "")}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+document.getElementById("saveBtn").onclick = async () => {
+  const btn = document.getElementById("saveBtn");
+  btn.disabled = true;
+  btn.innerHTML = `<span class="processing-pulse"></span><span>saving…</span>`;
+
+  const note = document.getElementById("noteInput").value.trim();
+
+  const item = {
+    type: "link",
+    url: currentTab.url,
+    title: currentTab.title,
+    favicon: currentTab.favIconUrl || "",
+    sourceUrl: currentTab.url,
+    pageContent: currentTab.title + " — " + currentTab.url,
+    note
+  };
+
+  await new Promise(res => chrome.runtime.sendMessage({ action: "saveItem", item, tabId: currentTab.id }, res));
+
+  document.getElementById("noteInput").value = "";
+  document.getElementById("projectHint").textContent = "Saved! AI is sorting… ✦";
+
+  // Refresh recent
+  setTimeout(async () => {
+    const state = await new Promise(res => chrome.runtime.sendMessage({ action: "getState" }, res));
+    renderRecent(state.items || []);
+    btn.disabled = false;
+    btn.innerHTML = `<span>save to Moodbase</span>`;
+    document.getElementById("projectHint").textContent = "AI will sort this automatically ✦";
+  }, 800);
+};
+
+document.getElementById("openDashboard").onclick = () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL("dashboard.html") });
+};
+
+document.getElementById("goToDashboard")?.addEventListener("click", () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL("dashboard.html") });
+});
+
+// Listen for storage changes to update recent list
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.items) renderRecent(changes.items.newValue || []);
+});
+
+init();
+</script>
+</body>
+</html>
