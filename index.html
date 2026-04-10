@@ -362,7 +362,7 @@ body { color: var(--text); font-family: 'Instrument Sans', sans-serif; font-size
     </div>
   </div>
 </div>
-
+<div class="modal-overlay" id="deleteModal"><div class="modal"><div class="modal-title">Delete Project?</div><p style="color:var(--text-dim);font-size:14px;margin-bottom:24px;">Items in this project will become uncategorized.</p><div class="modal-actions"><button class="btn btn-ghost" id="cancelDeleteBtn">Cancel</button><button class="btn" style="background:var(--danger);color:white;border-color:var(--danger)" id="confirmDeleteBtn">Delete</button></div></div></div>
 <div class="drag-hint" id="dragHint">Drop onto a project to move it</div>
 <div class="toast" id="toast"></div>
 
@@ -470,12 +470,20 @@ function renderSidebar(){
   btn.addEventListener("click", async(e)=>{
     e.stopPropagation();
     const id=btn.dataset.projId;
-if(!confirm("Delete this project? Items will become uncategorized."))return;
-    await sbClient.from("items").update({project_id:null}).eq("project_id",id);
-    await sbClient.from("projects").delete().eq("id",id);
-    projects=projects.filter(p=>p.id!==id);
-    if(activeProject===id)activeProject="ALL";
-    await loadData();renderAll();
+let pendingDeleteId=null;
+document.getElementById("deleteModal").classList.add("open");
+pendingDeleteId=id;
+document.getElementById("confirmDeleteBtn").onclick=async()=>{
+  document.getElementById("deleteModal").classList.remove("open");
+  await sbClient.from("items").update({project_id:null}).eq("project_id",pendingDeleteId);
+  await sbClient.from("projects").delete().eq("id",pendingDeleteId);
+  projects=projects.filter(p=>p.id!==pendingDeleteId);
+  if(activeProject===pendingDeleteId)activeProject="ALL";
+  await loadData();renderAll();
+};
+document.getElementById("cancelDeleteBtn").onclick=()=>{
+  document.getElementById("deleteModal").classList.remove("open");
+};
   });
 });
 list.querySelectorAll(".proj-item").forEach(el=>{
