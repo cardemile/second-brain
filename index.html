@@ -120,6 +120,7 @@ body { color: var(--text); font-family: 'Instrument Sans', sans-serif; font-size
 .proj-name { flex:1;font-size:13px;color:var(--text-dim); }
 .proj-item.active .proj-name { color:var(--text);font-weight:500; }
 .proj-count { font-size:11px;color:var(--text-muted);background:var(--bg);padding:1px 7px;border-radius:20px;border:1px solid var(--border); }
+  .proj-delete{display:none;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:10px;padding:2px 4px;margin-left:auto;border-radius:4px;}.proj-item:hover .proj-delete{display:block;}.proj-delete:hover{color:var(--danger);}
 .add-proj-btn { display:flex;align-items:center;gap:7px;padding:8px 10px;border-radius:8px;cursor:pointer;color:var(--text-muted);font-size:13px;border:1px dashed var(--border);margin:6px 0 0;background:transparent;width:100%;font-family:'Instrument Sans',sans-serif;transition:all 0.12s; }
 .add-proj-btn:hover { border-color:var(--highlight);color:var(--highlight);background:var(--highlight-soft); }
 .sidebar-divider { border:none;border-top:1px solid var(--border);margin:16px; }
@@ -453,10 +454,11 @@ function renderSidebar(){
     ${projects.map(p=>{
       const count=items.filter(i=>i.project_id===p.id).length;
       return`<div class="proj-item ${activeProject===p.id?"active":""}" data-proj="${p.id}" data-proj-id="${p.id}">
-        <div class="proj-dot" style="background:${p.color}"></div>
-        <div class="proj-name">${p.name}</div>
-        <div class="proj-count">${count}</div>
-      </div>`;
+  <div class="proj-dot" style="background:${p.color}"></div>
+  <div class="proj-name">${p.name}</div>
+  <div class="proj-count">${count}</div>
+  <button class="proj-delete" data-proj-id="${p.id}" title="Delete project">✕</button>
+</div>`;
     }).join("")}
     <div class="proj-item ${activeProject==="uncategorized"?"active":""}" data-proj="uncategorized" data-proj-id="uncategorized">
       <div class="proj-dot" style="background:var(--text-muted)"></div>
@@ -465,6 +467,18 @@ function renderSidebar(){
     </div>`;
 
   list.querySelectorAll(".proj-item").forEach(el=>{
+    list.querySelectorAll(".proj-delete").forEach(btn=>{
+  btn.addEventListener("click", async(e)=>{
+    e.stopPropagation();
+    const id=btn.dataset.projId;
+    if(!confirm("Delete this project? Items will become uncategorized."))return;
+    await sbClient.from("items").update({project_id:null}).eq("project_id",id);
+    await sbClient.from("projects").delete().eq("id",id);
+    projects=projects.filter(p=>p.id!==id);
+    if(activeProject===id)activeProject="ALL";
+    await loadData();renderAll();
+  });
+});
     el.addEventListener("click",()=>{activeProject=el.dataset.proj;activeTag=null;renderAll();});
   });
   list.querySelectorAll(".proj-item[data-proj-id]").forEach(el=>{
