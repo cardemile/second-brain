@@ -466,8 +466,7 @@ function renderSidebar(){
       <div class="proj-count">${items.filter(i=>!i.project_id).length}</div>
     </div>`;
 
-  list.querySelectorAll(".proj-item").forEach(el=>{
-    list.querySelectorAll(".proj-delete").forEach(btn=>{
+  list.querySelectorAll(".proj-delete").forEach(btn=>{
   btn.addEventListener("click", async(e)=>{
     e.stopPropagation();
     const id=btn.dataset.projId;
@@ -479,8 +478,9 @@ function renderSidebar(){
     await loadData();renderAll();
   });
 });
-    el.addEventListener("click",()=>{activeProject=el.dataset.proj;activeTag=null;renderAll();});
-  });
+list.querySelectorAll(".proj-item").forEach(el=>{
+  el.addEventListener("click",()=>{activeProject=el.dataset.proj;activeTag=null;renderAll();});
+});
   list.querySelectorAll(".proj-item[data-proj-id]").forEach(el=>{
     el.addEventListener("dragover",e=>{if(!dragItemId)return;e.preventDefault();el.classList.add("drag-over");});
     el.addEventListener("dragleave",()=>el.classList.remove("drag-over"));
