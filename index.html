@@ -370,7 +370,7 @@ body { color: var(--text); font-family: 'Instrument Sans', sans-serif; font-size
 const STORAGE_KEY="sb_config";
 const THEME_KEY="sb_theme";
 const SWATCHES=["#C4A882","#4a9eba","#c47fb0","#7ab87a","#9b8bc4","#ba6060","#6ab0b0","#c49060","#7a9aba","#b09060"];
-let sbClient=null,claudeKey="",items=[],projects=[];
+let sbClient=null,claudeKey="",items=[],projects=[],pendingDeleteId=null
 let activeProject="ALL",activeTag=null,searchQuery="";
 let viewMode="masonry",sortMode="newest",chatOpen=true,chatHistory=[];
 let selectedColor=SWATCHES[0],dragItemId=null;
@@ -470,7 +470,7 @@ function renderSidebar(){
   btn.addEventListener("click", async(e)=>{
     e.stopPropagation();
     const id=btn.dataset.projId;
-let pendingDeleteId=null;
+
 document.getElementById("deleteModal").classList.add("open");
 pendingDeleteId=id;
 document.getElementById("confirmDeleteBtn").onclick=async()=>{
