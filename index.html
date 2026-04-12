@@ -463,13 +463,48 @@ function showAuthError(msg){
 
 function hideAuthError(){document.getElementById("authError").style.display="none";}
 
+function isOAuthReturnUrl(){
+  try{
+    const p=new URLSearchParams(window.location.search);
+    if(p.has("code")&&p.has("state"))return true;
+  }catch{}
+  const h=window.location.hash||"";
+  return h.includes("access_token")||h.includes("error_description");
+}
+
+async function handleAuthStateEvent(event,session){
+  if(event==="SIGNED_OUT"){
+    leaveDashboard();
+    showAuthOnly();
+    updateUserChip(null);
+    return;
+  }
+  if(!session)return;
+  try{
+    await enterDashboard();
+    updateUserChip(session.user);
+  }catch(err){
+    console.error("[auth]",event,err);
+  }
+}
+
 function bindAuthListener(){
   if(authListenerSub)try{authListenerSub.unsubscribe();}catch{}
-  const{data:{subscription}}=sbClient.auth.onAuthStateChange(async(event,session)=>{
-    if(session&&(event==="SIGNED_IN"||event==="INITIAL_SESSION")){await enterDashboard();updateUserChip(session.user);}
-    if(event==="SIGNED_OUT"){leaveDashboard();showAuthOnly();}
+  const{data:{subscription}}=sbClient.auth.onAuthStateChange((event,session)=>{
+    void handleAuthStateEvent(event,session);
   });
   authListenerSub=subscription;
+}
+
+async function resolveSessionAfterOAuth(){
+  let session=null;
+  for(let i=0;i<15;i++){
+    const res=await sbClient.auth.getSession();
+    session=res?.data?.session??null;
+    if(session)break;
+    await new Promise(r=>setTimeout(r,120));
+  }
+  return session;
 }
 
 // ── AUTH ──
@@ -478,9 +513,10 @@ window.addEventListener("DOMContentLoaded",async()=>{
     clearLegacyClientSecrets();
     sbClient=createSbClient(SUPABASE_URL,SUPABASE_ANON_KEY);
     bindAuthListener();
-    const sessionRes=await sbClient.auth.getSession();
-    const session=sessionRes?.data?.session??null;
+    let sessionRes=await sbClient.auth.getSession();
+    let session=sessionRes?.data?.session??null;
     if(sessionRes?.error)console.warn("[auth] getSession:",sessionRes.error);
+    if(!session&&isOAuthReturnUrl())session=await resolveSessionAfterOAuth();
     if(session){await enterDashboard();updateUserChip(session.user);}
     else showAuthOnly();
   }catch(err){
