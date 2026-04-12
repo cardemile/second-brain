@@ -28,7 +28,10 @@
       "js": ["content.js"]
     },
     {
-      "matches": ["https://moodbase.vercel.app/*"],
+      "matches": [
+        "https://moodbase.vercel.app/*",
+        "https://moodbase.vercel.app/"
+      ],
       "js": ["moodbase-web-session.js"],
       "run_at": "document_idle"
     }

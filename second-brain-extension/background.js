@@ -313,8 +313,9 @@ async function runAI(raw, projects, apiKey) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ raw, projects })
   });
-  if (!response.ok) throw new Error("Categorize API error");
-  return await response.json();
+  const data = await response.json();
+if (!response.ok) throw new Error(data.error || "Categorize API error");
+return data;
 }
 
 async function getApiKey() {
