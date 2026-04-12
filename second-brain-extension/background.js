@@ -1,7 +1,6 @@
 // ─── Moodbase — Background Service Worker (Supabase Edition) ─────────────
-// RLS requires a logged-in JWT on REST calls. Session is stored in chrome.storage
-// after Google sign-in (PKCE). Add chrome.identity.getRedirectURL() to Supabase
-// Dashboard → Authentication → URL Configuration → Redirect URLs.
+// RLS requires a logged-in JWT on REST calls. The session is copied from
+// https://moodbase.vercel.app (same Supabase localStorage as the web app).
 
 const SUPABASE_URL = "https://qxgsaqvulfafqqxrkyob.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4Z3NhcXZ1bGZhZnFxeHJreW9iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NDY5MzUsImV4cCI6MjA5MTIyMjkzNX0.ScmKdK5dI8xBv-35r0Zx0GwqyCVWT9MsqnIKlM7GGWg";
@@ -17,45 +16,79 @@ const authJsonHeaders = {
   "Authorization": `Bearer ${SUPABASE_KEY}`
 };
 
-function generateCodeVerifier() {
-  const pool = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
-  const bytes = new Uint8Array(64);
-  crypto.getRandomValues(bytes);
-  let s = "";
-  for (let i = 0; i < 64; i++) s += pool[bytes[i] % pool.length];
-  return s;
-}
-
-async function sha256Base64Url(plain) {
-  const data = new TextEncoder().encode(plain);
-  const hash = await crypto.subtle.digest("SHA-256", data);
-  const bytes = new Uint8Array(hash);
-  let binary = "";
-  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+function sessionExpiresAtSeconds(body) {
+  if (body.expires_at != null) return body.expires_at;
+  return Math.floor(Date.now() / 1000) + (body.expires_in || 3600);
 }
 
 async function persistSessionFromAuthResponse(body) {
-  const exp = Math.floor(Date.now() / 1000) + (body.expires_in || 3600);
+  if (!body?.access_token) {
+    await clearStoredSession();
+    return;
+  }
+  const prev = await chrome.storage.local.get([SB_REFRESH]);
   await chrome.storage.local.set({
     [SB_ACCESS]: body.access_token,
-    [SB_REFRESH]: body.refresh_token,
-    [SB_EXPIRES]: exp,
-    [SB_EMAIL]: body.user?.email || null
+    [SB_REFRESH]: body.refresh_token || prev[SB_REFRESH] || null,
+    [SB_EXPIRES]: sessionExpiresAtSeconds(body),
+    [SB_EMAIL]: body.user?.email ?? null
   });
+}
+
+/** Parsed row from Supabase JS localStorage (`sb-…-auth-token`) or token API body. */
+async function persistSessionFromSupabaseSession(session) {
+  if (!session?.access_token) {
+    await clearStoredSession();
+    return;
+  }
+  await persistSessionFromAuthResponse(session);
+}
+
+async function refreshSessionFromWebTabs() {
+  try {
+    const tabs = await chrome.tabs.query({ url: "https://moodbase.vercel.app/*" });
+    for (const tab of tabs) {
+      try {
+        const session = await chrome.tabs.sendMessage(tab.id, { action: "readSupabaseSession" });
+        if (session?.access_token) {
+          await persistSessionFromSupabaseSession(session);
+          return true;
+        }
+      } catch {
+        /* tab has no bridge yet */
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
 }
 
 async function clearStoredSession() {
   await chrome.storage.local.remove([SB_ACCESS, SB_REFRESH, SB_EXPIRES, SB_EMAIL]);
 }
 
+function accessTokenIsFresh(stored, nowSec) {
+  return !!(stored[SB_ACCESS] && stored[SB_EXPIRES] && stored[SB_EXPIRES] > nowSec + 90);
+}
+
 async function getValidAccessToken() {
-  const stored = await chrome.storage.local.get([SB_ACCESS, SB_REFRESH, SB_EXPIRES]);
+  let stored = await chrome.storage.local.get([SB_ACCESS, SB_REFRESH, SB_EXPIRES]);
   const now = Date.now() / 1000;
-  if (stored[SB_ACCESS] && stored[SB_EXPIRES] && stored[SB_EXPIRES] > now + 90) {
-    return stored[SB_ACCESS];
+
+  if (!accessTokenIsFresh(stored, now) && !stored[SB_REFRESH]) {
+    await refreshSessionFromWebTabs();
+    stored = await chrome.storage.local.get([SB_ACCESS, SB_REFRESH, SB_EXPIRES]);
   }
-  if (!stored[SB_REFRESH]) return stored[SB_ACCESS] || null;
+
+  if (accessTokenIsFresh(stored, now)) return stored[SB_ACCESS];
+
+  if (!stored[SB_REFRESH]) {
+    await refreshSessionFromWebTabs();
+    stored = await chrome.storage.local.get([SB_ACCESS, SB_REFRESH, SB_EXPIRES]);
+    if (accessTokenIsFresh(stored, now)) return stored[SB_ACCESS];
+    if (!stored[SB_REFRESH]) return stored[SB_ACCESS] || null;
+  }
 
   const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
     method: "POST",
@@ -71,66 +104,8 @@ async function getValidAccessToken() {
   return body.access_token;
 }
 
-async function signInWithGoogle() {
-  const codeVerifier = generateCodeVerifier();
-  const codeChallenge = await sha256Base64Url(codeVerifier);
-  const redirectTo = chrome.identity.getRedirectURL();
-  const params = new URLSearchParams({
-    provider: "google",
-    redirect_to: redirectTo,
-    code_challenge: codeChallenge,
-    code_challenge_method: "S256"
-  });
-  const authUrl = `${SUPABASE_URL}/auth/v1/authorize?${params.toString()}`;
-
-  const responseUrl = await new Promise((resolve, reject) => {
-    chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: true }, (url) => {
-      if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-      else resolve(url);
-    });
-  });
-
-  if (!responseUrl) throw new Error("Sign-in was cancelled.");
-
-  let parsed;
-  try {
-    parsed = new URL(responseUrl);
-  } catch {
-    throw new Error("Invalid redirect after sign-in.");
-  }
-
-  const hashParams = parsed.hash ? new URLSearchParams(parsed.hash.replace(/^#/, "")) : null;
-  const err = parsed.searchParams.get("error") || hashParams?.get("error");
-  if (err) {
-    const desc = parsed.searchParams.get("error_description") || hashParams?.get("error_description");
-    throw new Error(desc ? decodeURIComponent(desc.replace(/\+/g, " ")) : err);
-  }
-
-  const code = parsed.searchParams.get("code") || hashParams?.get("code");
-  if (!code) throw new Error("No authorization code returned. Check Redirect URLs in Supabase include: " + redirectTo);
-
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=pkce`, {
-    method: "POST",
-    headers: authJsonHeaders,
-    body: JSON.stringify({ auth_code: code, code_verifier: codeVerifier })
-  });
-  const body = await res.json();
-  if (!res.ok) {
-    const msg = body.error_description || body.msg || body.message || "Could not complete sign-in.";
-    throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
-  }
-  await persistSessionFromAuthResponse(body);
-  return { email: body.user?.email || null };
-}
-
+/** Clears only the extension copy; the web app session at moodbase.vercel.app is unchanged. */
 async function signOutSupabase() {
-  const token = await chrome.storage.local.get([SB_ACCESS]).then((r) => r[SB_ACCESS]);
-  if (token) {
-    await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
-      method: "POST",
-      headers: { ...authJsonHeaders, Authorization: `Bearer ${token}` }
-    }).catch(() => {});
-  }
   await clearStoredSession();
 }
 
@@ -143,7 +118,9 @@ function assertNoRestError(json) {
 async function sbInsert(table, data) {
   const accessToken = await getValidAccessToken();
   if (!accessToken) {
-    throw new Error("Not signed in. Open the extension dashboard → Settings → Moodbase account → Sign in with Google.");
+    throw new Error(
+      "Not signed in. Log in at https://moodbase.vercel.app (keep that tab open or use Settings → Sync session)."
+    );
   }
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
     method: "POST",
@@ -166,7 +143,9 @@ async function sbInsert(table, data) {
 async function sbSelect(table, filter = "") {
   const accessToken = await getValidAccessToken();
   if (!accessToken) {
-    throw new Error("Not signed in. Open the extension dashboard → Settings → Moodbase account → Sign in with Google.");
+    throw new Error(
+      "Not signed in. Log in at https://moodbase.vercel.app (keep that tab open or use Settings → Sync session)."
+    );
   }
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`, {
     headers: {
@@ -210,10 +189,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       .catch((e) => sendResponse({ success: false, error: e?.message || String(e) }));
     return true;
   }
-  if (request.action === "googleSignIn") {
-    signInWithGoogle()
-      .then((r) => sendResponse({ success: true, ...r }))
+  if (request.action === "syncSessionFromWebApp") {
+    persistSessionFromSupabaseSession(request.session)
+      .then(() => sendResponse({ success: true }))
       .catch((e) => sendResponse({ success: false, error: e?.message || String(e) }));
+    return true;
+  }
+  if (request.action === "syncSessionFromWeb") {
+    refreshSessionFromWebTabs()
+      .then(async (synced) => {
+        const r = await chrome.storage.local.get([SB_ACCESS, SB_EMAIL]);
+        sendResponse({
+          success: !!r[SB_ACCESS],
+          synced,
+          email: r[SB_EMAIL] || null,
+          error: r[SB_ACCESS]
+            ? null
+            : "Open https://moodbase.vercel.app while logged in, then try Sync again."
+        });
+      })
+      .catch((e) => sendResponse({ success: false, synced: false, error: e?.message || String(e) }));
     return true;
   }
   if (request.action === "signOutSupabase") {
@@ -223,9 +218,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
   if (request.action === "getAuthStatus") {
-    chrome.storage.local.get([SB_ACCESS, SB_EMAIL]).then((r) => {
+    (async () => {
+      let r = await chrome.storage.local.get([SB_ACCESS, SB_EMAIL]);
+      if (!r[SB_ACCESS]) await refreshSessionFromWebTabs();
+      r = await chrome.storage.local.get([SB_ACCESS, SB_EMAIL]);
       sendResponse({ signedIn: !!r[SB_ACCESS], email: r[SB_EMAIL] || null });
+    })();
+    return true;
+  }
+  if (request.action === "getState") {
+    chrome.storage.local.get(["items", "projects"]).then((r) => {
+      sendResponse({ items: r.items || [], projects: r.projects || [] });
     });
+    return true;
+  }
+  if (request.action === "updateProjects") {
+    chrome.storage.local
+      .set({ projects: request.projects || [] })
+      .then(() => sendResponse({ success: true }))
+      .catch((e) => sendResponse({ success: false, error: e?.message || String(e) }));
     return true;
   }
 });

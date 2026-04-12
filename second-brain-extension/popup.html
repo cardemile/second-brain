@@ -371,7 +371,8 @@ document.getElementById("saveBtn").onclick = async () => {
   const saveRes = await new Promise(res => chrome.runtime.sendMessage({ action: "saveItem", item, tabId: currentTab.id }, res));
 
   if (!saveRes?.success) {
-    document.getElementById("projectHint").textContent = saveRes?.error || "Save failed. Sign in via extension dashboard (Settings).";
+    document.getElementById("projectHint").textContent =
+      saveRes?.error || "Save failed. Log in at moodbase.vercel.app and sync session in the dashboard (Settings).";
     btn.disabled = false;
     btn.innerHTML = `<span>save to Moodbase</span>`;
     return;

@@ -1,14 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Moodbase — AI Moodboard",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Save anything. AI sorts, tags, summarizes, and connects it to your projects automatically.",
   "permissions": [
     "activeTab",
     "storage",
     "contextMenus",
     "scripting",
-    "identity"
+    "tabs"
   ],
   "host_permissions": ["<all_urls>"],
   "action": {
@@ -26,6 +26,11 @@
     {
       "matches": ["<all_urls>"],
       "js": ["content.js"]
+    },
+    {
+      "matches": ["https://moodbase.vercel.app/*"],
+      "js": ["moodbase-web-session.js"],
+      "run_at": "document_idle"
     }
   ],
   "icons": {

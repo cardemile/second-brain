@@ -655,18 +655,15 @@ body {
     <div class="settings-section">
       <div class="settings-title">Moodbase account</div>
       <div class="api-key-hint" style="margin-bottom:10px">
-        Saves use your Supabase account (same Google login as the web app). Add this exact URL under
-        Supabase → Authentication → URL Configuration → <strong>Redirect URLs</strong>:
-      </div>
-      <div class="field">
-        <label>Chrome extension redirect</label>
-        <input type="text" id="sbRedirectUrl" readonly style="font-size:10px;cursor:text" />
+        Sign in with Google on the <strong>web app</strong> — the extension reuses that Supabase session automatically when
+        <code style="font-size:9px">moodbase.vercel.app</code> is open. If saves fail, open the site (logged in) and tap Sync.
       </div>
       <div id="accountAuthStatus" class="api-key-hint" style="margin-bottom:8px"></div>
       <div id="accountAuthError" class="api-key-hint" style="display:none;color:#c47070;margin-bottom:8px"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button type="button" class="btn btn-accent" id="signInGoogleBtn">Sign in with Google</button>
-        <button type="button" class="btn btn-ghost" id="signOutAccountBtn" style="display:none">Sign out</button>
+        <button type="button" class="btn btn-accent" id="openMoodbaseWebBtn">Open Moodbase</button>
+        <button type="button" class="btn btn-ghost" id="syncSessionWebBtn">Sync session</button>
+        <button type="button" class="btn btn-ghost" id="signOutAccountBtn" style="display:none">Forget extension session</button>
       </div>
     </div>
     <div class="settings-section">
@@ -1094,38 +1091,38 @@ async function refreshAccountAuthUI() {
   const st = await new Promise(res => chrome.runtime.sendMessage({ action: "getAuthStatus" }, res));
   const statusEl = document.getElementById("accountAuthStatus");
   const outBtn = document.getElementById("signOutAccountBtn");
-  const inBtn = document.getElementById("signInGoogleBtn");
   if (st?.signedIn) {
-    statusEl.textContent = st.email ? `Signed in as ${st.email}` : "Signed in.";
+    statusEl.textContent = st.email ? `Session active (${st.email})` : "Session active.";
     outBtn.style.display = "inline-block";
-    inBtn.style.display = "none";
   } else {
-    statusEl.textContent = "Not signed in — saves will not reach your account until you sign in.";
+    statusEl.textContent =
+      "No session in the extension yet — log in on moodbase.vercel.app (tab can be in the background), then Sync.";
     outBtn.style.display = "none";
-    inBtn.style.display = "inline-block";
   }
 }
 
 document.getElementById("settingsBtn").addEventListener("click", async () => {
   const r = await new Promise(res => chrome.storage.local.get(["apiKey"], res));
   document.getElementById("apiKeyInput").value = r.apiKey || "";
-  document.getElementById("sbRedirectUrl").value = chrome.identity.getRedirectURL();
   document.getElementById("accountAuthError").style.display = "none";
   await refreshAccountAuthUI();
   document.getElementById("settingsModal").classList.add("open");
 });
 
-document.getElementById("signInGoogleBtn").addEventListener("click", async () => {
+document.getElementById("openMoodbaseWebBtn").addEventListener("click", () => {
+  chrome.tabs.create({ url: "https://moodbase.vercel.app/", active: true });
+});
+
+document.getElementById("syncSessionWebBtn").addEventListener("click", async () => {
   const errEl = document.getElementById("accountAuthError");
   errEl.style.display = "none";
-  const btn = document.getElementById("signInGoogleBtn");
+  const btn = document.getElementById("syncSessionWebBtn");
   btn.disabled = true;
-  const res = await new Promise(r => chrome.runtime.sendMessage({ action: "googleSignIn" }, r));
+  const res = await new Promise(r => chrome.runtime.sendMessage({ action: "syncSessionFromWeb" }, r));
   btn.disabled = false;
   if (!res?.success) {
-    errEl.textContent = res?.error || "Sign-in failed.";
+    errEl.textContent = res?.error || "Could not read session from an open Moodbase tab.";
     errEl.style.display = "block";
-    return;
   }
   await refreshAccountAuthUI();
 });
