@@ -56,8 +56,8 @@
 html, body { height: 100%; overflow: hidden; background: var(--bg); transition: background 0.3s; }
 body { color: var(--text); font-family: 'Instrument Sans', sans-serif; font-size: 13px; display: flex; flex-direction: column; -webkit-font-smoothing: antialiased; }
 
-/* ── SETUP ── */
-#setupScreen { position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000; }
+/* ── SETUP / AUTH ── */
+#setupScreen,#authScreen { position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000; }
 .setup-wrap { width:440px;animation:riseIn 0.6s cubic-bezier(0.16,1,0.3,1) forwards; }
 @keyframes riseIn { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
 .setup-logo { font-family:'Playfair Display',serif;font-size:28px;font-weight:400;letter-spacing:-0.01em;margin-bottom:6px;display:flex;align-items:center;gap:12px; }
@@ -75,7 +75,11 @@ body { color: var(--text); font-family: 'Instrument Sans', sans-serif; font-size
 .setup-btn { width:100%;background:var(--accent);color:var(--bg);border:none;padding:13px;border-radius:8px;font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:500;letter-spacing:0.03em;cursor:pointer;margin-top:8px;transition:opacity 0.15s; }
 .setup-btn:hover { opacity:0.85; }
 .setup-btn:disabled { opacity:0.4;cursor:not-allowed; }
+.setup-btn-google { background:var(--surface);color:var(--text);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;gap:10px;margin-top:0; }
+.setup-btn-google:hover { background:var(--bg);border-color:var(--border-mid); }
+.setup-btn-google svg { flex-shrink:0; }
 .setup-error { color:var(--danger);font-size:11px;margin-top:10px;display:none;line-height:1.5; }
+.user-email { font-size:12px;color:var(--text-dim);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
 
 /* ── TOPBAR ── */
 .topbar { height:56px;display:flex;align-items:center;padding:0 28px;gap:20px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface);transition:background 0.3s,border-color 0.3s; }
@@ -265,8 +269,26 @@ body { color: var(--text); font-family: 'Instrument Sans', sans-serif; font-size
         <input type="password" id="claudeKey" placeholder="sk-ant-…" />
         <div class="setup-hint">From <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> → API Keys. Stored in your browser only.</div>
       </div>
-      <button class="setup-btn" id="setupBtn">Connect & Enter →</button>
+      <button class="setup-btn" id="setupBtn">Save & Continue →</button>
+      <div class="setup-hint" style="margin-top:16px">Next you will sign in with Google. Row Level Security expects a <code style="font-size:10px">user_id</code> column on <code style="font-size:10px">items</code> and <code style="font-size:10px">projects</code> — run the SQL in <code style="font-size:10px">supabase_rls.sql</code> in the Supabase SQL Editor once.</div>
       <div class="setup-error" id="setupError"></div>
+    </div>
+  </div>
+</div>
+
+<div id="authScreen" style="display:none;">
+  <div class="setup-wrap">
+    <div class="setup-logo"><div class="setup-logo-mark">✦</div>Moodbase</div>
+    <div class="setup-sub">Sign in to open your saves</div>
+    <div class="setup-card">
+      <div class="setup-card-title">Sign in</div>
+      <button type="button" class="setup-btn setup-btn-google" id="googleSignInBtn">
+        <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.56 2.93-2.22 5.42-4.74 7.08l7.63 5.92C43.76 37.59 46.98 31.65 46.98 24.55z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.63-5.92c-2.13 1.35-4.85 2.13-8.27 2.13-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        Continue with Google
+      </button>
+      <div class="setup-hint" style="margin-top:18px">Use the same Supabase project where Google is enabled under Authentication → Providers. Add this site URL to Authentication → URL Configuration → Redirect URLs.</div>
+      <button type="button" class="btn btn-ghost" id="changeProjectBtn" style="width:100%;margin-top:14px;font-size:12px">Use a different Supabase project…</button>
+      <div class="setup-error" id="authError"></div>
     </div>
   </div>
 </div>
@@ -279,6 +301,8 @@ body { color: var(--text); font-family: 'Instrument Sans', sans-serif; font-size
       <input type="text" id="searchInput" placeholder="Search everything…" />
     </div>
     <div class="topbar-right">
+      <span class="user-email" id="userEmail" title=""></span>
+      <button class="btn btn-ghost" id="signOutBtn" type="button">Sign out</button>
       <button class="theme-toggle" id="themeToggle" title="Toggle dark/light mode">🌙</button>
       <button class="btn btn-icon" id="chatToggleBtn" title="AI Chat">💬</button>
       <button class="btn btn-icon" id="refreshBtn" title="Refresh">↻</button>
@@ -374,6 +398,7 @@ let sbClient=null,claudeKey="",items=[],projects=[],pendingDeleteId=null
 let activeProject="ALL",activeTag=null,searchQuery="";
 let viewMode="masonry",sortMode="newest",chatOpen=true,chatHistory=[];
 let selectedColor=SWATCHES[0],dragItemId=null;
+let dashboardMounted=false,authListenerSub=null,enterDashboardLock=false;
 
 // ── THEME ──
 const savedTheme=localStorage.getItem(THEME_KEY)||"light";
@@ -393,11 +418,64 @@ document.getElementById("themeToggle").addEventListener("click",()=>{
   updateThemeIcon(next);
 });
 
-// ── SETUP ──
-window.addEventListener("DOMContentLoaded",()=>{
-  const saved=localStorage.getItem(STORAGE_KEY);
-  if(saved){try{const cfg=JSON.parse(saved);if(cfg.url&&cfg.key){initSupabase(cfg.url,cfg.key,cfg.claudeKey);return;}}catch{}}
+function createSbClient(url,key){
+  return window.supabase.createClient(url,key,{
+    auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce"}
+  });
+}
+
+function oauthRedirectUrl(){
+  const{origin,pathname,search}=window.location;
+  return`${origin}${pathname}${search}`;
+}
+
+function showSetupOnly(){
   document.getElementById("setupScreen").style.display="flex";
+  document.getElementById("authScreen").style.display="none";
+  document.getElementById("app").style.display="none";
+}
+
+function showAuthOnly(){
+  document.getElementById("setupScreen").style.display="none";
+  document.getElementById("authScreen").style.display="flex";
+  document.getElementById("app").style.display="none";
+}
+
+function showAuthError(msg){
+  const el=document.getElementById("authError");
+  el.textContent=msg;
+  el.style.display="block";
+}
+
+function hideAuthError(){document.getElementById("authError").style.display="none";}
+
+function bindAuthListener(){
+  if(authListenerSub)try{authListenerSub.unsubscribe();}catch{}
+  const{data:{subscription}}=sbClient.auth.onAuthStateChange(async(event,session)=>{
+    if(session&&(event==="SIGNED_IN"||event==="INITIAL_SESSION")){await enterDashboard();updateUserChip(session.user);}
+    if(event==="SIGNED_OUT"){leaveDashboard();if(localStorage.getItem(STORAGE_KEY))showAuthOnly();}
+  });
+  authListenerSub=subscription;
+}
+
+// ── SETUP + AUTH ──
+window.addEventListener("DOMContentLoaded",async()=>{
+  const saved=localStorage.getItem(STORAGE_KEY);
+  if(saved){
+    try{
+      const cfg=JSON.parse(saved);
+      if(cfg.url&&cfg.key){
+        sbClient=createSbClient(cfg.url,cfg.key);
+        claudeKey=cfg.claudeKey||"";
+        bindAuthListener();
+        const{data:{session}}=await sbClient.auth.getSession();
+        if(session){await enterDashboard();updateUserChip(session.user);}
+        else showAuthOnly();
+        return;
+      }
+    }catch{}
+  }
+  showSetupOnly();
 });
 
 document.getElementById("setupBtn").addEventListener("click",async()=>{
@@ -406,20 +484,89 @@ document.getElementById("setupBtn").addEventListener("click",async()=>{
   const claude=document.getElementById("claudeKey").value.trim();
   const btn=document.getElementById("setupBtn");
   if(!url||!key){showSetupError("Please fill in your Supabase URL and Key.");return;}
-  btn.disabled=true;btn.textContent="Connecting…";
+  btn.disabled=true;btn.textContent="Saving…";
   document.getElementById("setupError").style.display="none";
-  try{await initSupabase(url,key,claude);localStorage.setItem(STORAGE_KEY,JSON.stringify({url,key,claudeKey:claude}));}
-  catch(err){showSetupError("Could not connect.\n"+err.message);btn.disabled=false;btn.textContent="Connect & Enter →";}
+  try{
+    sbClient=createSbClient(url,key);
+    claudeKey=claude||"";
+    localStorage.setItem(STORAGE_KEY,JSON.stringify({url,key,claudeKey:claude}));
+    bindAuthListener();
+    document.getElementById("setupScreen").style.display="none";
+    showAuthOnly();
+  }catch(err){
+    showSetupError("Could not initialize client.\n"+(err&&err.message?err.message:String(err)));
+  }
+  btn.disabled=false;btn.textContent="Save & Continue →";
+});
+
+document.getElementById("changeProjectBtn").addEventListener("click",async()=>{
+  if(!confirm("Clear saved Supabase URL and keys on this device? You can reconnect from setup."))return;
+  if(sbClient)try{await sbClient.auth.signOut();}catch{}
+  localStorage.removeItem(STORAGE_KEY);
+  location.reload();
+});
+
+document.getElementById("googleSignInBtn").addEventListener("click",async()=>{
+  if(!sbClient){showAuthError("Missing Supabase configuration. Go back to setup.");return;}
+  hideAuthError();
+  const btn=document.getElementById("googleSignInBtn");
+  btn.disabled=true;
+  const{data,error}=await sbClient.auth.signInWithOAuth({
+    provider:"google",
+    options:{redirectTo:oauthRedirectUrl(),queryParams:{prompt:"select_account"}}
+  });
+  if(error){showAuthError(error.message);btn.disabled=false;}
+  else if(data?.url)window.location.assign(data.url);
+});
+
+document.getElementById("signOutBtn").addEventListener("click",async()=>{
+  if(!sbClient)return;
+  await sbClient.auth.signOut();
+  leaveDashboard();
+  showAuthOnly();
+  updateUserChip(null);
 });
 
 function showSetupError(msg){const el=document.getElementById("setupError");el.textContent=msg;el.style.display="block";}
 
-async function initSupabase(url,key,claude){
-  sbClient=window.supabase.createClient(url,key);claudeKey=claude||"";
-  await ensureTables();
-  document.getElementById("setupScreen").style.display="none";
-  document.getElementById("app").style.display="flex";
-  await loadData();renderAll();setupRealtime();
+function updateUserChip(user){
+  const el=document.getElementById("userEmail");
+  if(!el)return;
+  if(user?.email){el.textContent=user.email;el.title=user.email;el.style.display="inline";}
+  else{el.textContent="";el.title="";el.style.display="none";}
+}
+
+function leaveDashboard(){
+  dashboardMounted=false;
+  if(sbClient&&typeof sbClient.removeAllChannels==="function")sbClient.removeAllChannels();
+  items=[];projects=[];
+  document.getElementById("app").style.display="none";
+}
+
+async function enterDashboard(){
+  if(dashboardMounted||!sbClient||enterDashboardLock)return;
+  enterDashboardLock=true;
+  try{
+    const{data:{session}}=await sbClient.auth.getSession();
+    if(!session||dashboardMounted)return;
+    document.getElementById("setupScreen").style.display="none";
+    document.getElementById("authScreen").style.display="none";
+    document.getElementById("app").style.display="flex";
+    updateUserChip(session.user);
+    hideAuthError();
+    try{
+      await ensureTables();
+    }catch(err){
+      document.getElementById("app").style.display="none";
+      showAuthOnly();
+      showAuthError(err.message||String(err));
+      return;
+    }
+    await loadData();renderAll();setupRealtime();
+    dashboardMounted=true;
+  }finally{
+    enterDashboardLock=false;
+  }
 }
 
 async function ensureTables(){
@@ -615,7 +762,12 @@ document.getElementById("sortSelect").addEventListener("change",e=>{sortMode=e.t
 document.getElementById("masonryBtn").addEventListener("click",()=>{viewMode="masonry";document.getElementById("masonryBtn").classList.add("active");document.getElementById("listBtn").classList.remove("active");renderBoard();});
 document.getElementById("listBtn").addEventListener("click",()=>{viewMode="list";document.getElementById("listBtn").classList.add("active");document.getElementById("masonryBtn").classList.remove("active");renderBoard();});
 document.getElementById("refreshBtn").addEventListener("click",async()=>{await loadData();renderAll();});
-document.getElementById("disconnectBtn").addEventListener("click",()=>{if(!confirm("Disconnect from Supabase?"))return;localStorage.removeItem(STORAGE_KEY);location.reload();});
+document.getElementById("disconnectBtn").addEventListener("click",async()=>{
+  if(!confirm("Disconnect from Supabase? This clears saved keys and signs you out."))return;
+  if(sbClient)try{await sbClient.auth.signOut();}catch{}
+  localStorage.removeItem(STORAGE_KEY);
+  location.reload();
+});
 document.getElementById("exportBtn").addEventListener("click",()=>{
   const filtered=getFiltered();
   const text=filtered.map(i=>`${i.title}\n${i.url||i.content||""}\nTags: ${(i.tags||[]).join(", ")}`).join("\n\n---\n\n");
@@ -689,7 +841,9 @@ document.getElementById("saveProjBtn").addEventListener("click",async()=>{
   const name=document.getElementById("projName").value.trim();
   const keywords=document.getElementById("projKeywords").value.split(",").map(k=>k.trim()).filter(Boolean);
   if(!name)return;
-  const{data}=await sbClient.from("projects").insert({name,color:selectedColor,keywords}).select().single();
+  const{data:{user}}=await sbClient.auth.getUser();
+  if(!user){showToast("Not signed in");return;}
+  const{data}=await sbClient.from("projects").insert({name,color:selectedColor,keywords,user_id:user.id}).select().single();
   if(data)projects.push(data);
   document.getElementById("projModal").classList.remove("open");
   document.getElementById("projName").value="";document.getElementById("projKeywords").value="";
