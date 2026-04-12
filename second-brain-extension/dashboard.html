@@ -653,6 +653,23 @@ body {
       </div>
     </div>
     <div class="settings-section">
+      <div class="settings-title">Moodbase account</div>
+      <div class="api-key-hint" style="margin-bottom:10px">
+        Saves use your Supabase account (same Google login as the web app). Add this exact URL under
+        Supabase → Authentication → URL Configuration → <strong>Redirect URLs</strong>:
+      </div>
+      <div class="field">
+        <label>Chrome extension redirect</label>
+        <input type="text" id="sbRedirectUrl" readonly style="font-size:10px;cursor:text" />
+      </div>
+      <div id="accountAuthStatus" class="api-key-hint" style="margin-bottom:8px"></div>
+      <div id="accountAuthError" class="api-key-hint" style="display:none;color:#c47070;margin-bottom:8px"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button type="button" class="btn btn-accent" id="signInGoogleBtn">Sign in with Google</button>
+        <button type="button" class="btn btn-ghost" id="signOutAccountBtn" style="display:none">Sign out</button>
+      </div>
+    </div>
+    <div class="settings-section">
       <div class="settings-title">Data</div>
       <div style="display:flex;gap:8px;">
         <button class="btn btn-ghost" id="exportJsonBtn">export JSON</button>
@@ -1073,10 +1090,49 @@ document.getElementById("saveProjBtn").addEventListener("click", async () => {
 });
 
 // ─── SETTINGS ─────────────────────────────────────────────────────────────────
+async function refreshAccountAuthUI() {
+  const st = await new Promise(res => chrome.runtime.sendMessage({ action: "getAuthStatus" }, res));
+  const statusEl = document.getElementById("accountAuthStatus");
+  const outBtn = document.getElementById("signOutAccountBtn");
+  const inBtn = document.getElementById("signInGoogleBtn");
+  if (st?.signedIn) {
+    statusEl.textContent = st.email ? `Signed in as ${st.email}` : "Signed in.";
+    outBtn.style.display = "inline-block";
+    inBtn.style.display = "none";
+  } else {
+    statusEl.textContent = "Not signed in — saves will not reach your account until you sign in.";
+    outBtn.style.display = "none";
+    inBtn.style.display = "inline-block";
+  }
+}
+
 document.getElementById("settingsBtn").addEventListener("click", async () => {
   const r = await new Promise(res => chrome.storage.local.get(["apiKey"], res));
   document.getElementById("apiKeyInput").value = r.apiKey || "";
+  document.getElementById("sbRedirectUrl").value = chrome.identity.getRedirectURL();
+  document.getElementById("accountAuthError").style.display = "none";
+  await refreshAccountAuthUI();
   document.getElementById("settingsModal").classList.add("open");
+});
+
+document.getElementById("signInGoogleBtn").addEventListener("click", async () => {
+  const errEl = document.getElementById("accountAuthError");
+  errEl.style.display = "none";
+  const btn = document.getElementById("signInGoogleBtn");
+  btn.disabled = true;
+  const res = await new Promise(r => chrome.runtime.sendMessage({ action: "googleSignIn" }, r));
+  btn.disabled = false;
+  if (!res?.success) {
+    errEl.textContent = res?.error || "Sign-in failed.";
+    errEl.style.display = "block";
+    return;
+  }
+  await refreshAccountAuthUI();
+});
+
+document.getElementById("signOutAccountBtn").addEventListener("click", async () => {
+  await new Promise(r => chrome.runtime.sendMessage({ action: "signOutSupabase" }, r));
+  await refreshAccountAuthUI();
 });
 document.getElementById("cancelSettingsBtn").addEventListener("click", () => {
   document.getElementById("settingsModal").classList.remove("open");

@@ -7,12 +7,13 @@ chrome.runtime.onMessage.addListener((msg) => {
   const toast = document.createElement("div");
   toast.id = "sb-toast";
   toast.textContent = msg.message || "Saved";
+  const isError = msg.type === "error";
   toast.style.cssText = `
     position: fixed;
     bottom: 24px;
     right: 24px;
-    background: #1A1714;
-    color: #F8F6F2;
+    background: ${isError ? "#3a2020" : "#1A1714"};
+    color: ${isError ? "#f0d0d0" : "#F8F6F2"};
     font-family: 'Instrument Sans', system-ui, sans-serif;
     font-size: 13px;
     padding: 11px 18px;
@@ -35,5 +36,5 @@ chrome.runtime.onMessage.addListener((msg) => {
     toast.style.opacity = "0";
     toast.style.transform = "translateY(8px)";
     setTimeout(() => toast.remove(), 300);
-  }, 2500);
+  }, isError ? 5000 : 2500);
 });
