@@ -391,6 +391,7 @@ let activeProject="ALL",activeTag=null,searchQuery="";
 let viewMode="masonry",sortMode="newest",chatOpen=true,chatHistory=[];
 let selectedColor=SWATCHES[0],dragItemId=null;
 let dashboardMounted=false,authListenerSub=null,enterDashboardLock=false;
+let bootstrapFallbackTimer=null;
 
 // ── THEME ──
 const savedTheme=storageGet(THEME_KEY,"light");
@@ -423,7 +424,33 @@ function oauthRedirectUrl(){
   return`https://moodbase.vercel.app${pathname}${search}`;
 }
 
+function clearBootstrapFallback(){
+  if(bootstrapFallbackTimer!=null){clearTimeout(bootstrapFallbackTimer);bootstrapFallbackTimer=null;}
+}
+
+function isMainShellVisible(){
+  const auth=document.getElementById("authScreen"),app=document.getElementById("app");
+  if(!auth||!app)return false;
+  return auth.style.display==="flex"||app.style.display==="flex";
+}
+
+function scheduleBootstrapFallback(){
+  clearBootstrapFallback();
+  bootstrapFallbackTimer=setTimeout(()=>{
+    bootstrapFallbackTimer=null;
+    if(isMainShellVisible())return;
+    try{
+      showAuthOnly();
+    }catch{
+      const auth=document.getElementById("authScreen"),app=document.getElementById("app");
+      if(auth)auth.style.display="flex";
+      if(app)app.style.display="none";
+    }
+  },3000);
+}
+
 function showAuthOnly(){
+  clearBootstrapFallback();
   document.getElementById("authScreen").style.display="flex";
   document.getElementById("app").style.display="none";
 }
@@ -507,6 +534,7 @@ async function enterDashboard(){
     if(!session||dashboardMounted)return;
     document.getElementById("authScreen").style.display="none";
     document.getElementById("app").style.display="flex";
+    clearBootstrapFallback();
     updateUserChip(session.user);
     hideAuthError();
     try{
@@ -811,6 +839,8 @@ document.getElementById("saveProjBtn").addEventListener("click",async()=>{
   document.getElementById("projName").value="";document.getElementById("projKeywords").value="";
   renderAll();
 });
+
+scheduleBootstrapFallback();
 </script>
 </body>
 </html>
