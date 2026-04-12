@@ -255,15 +255,9 @@ body { color: var(--text); font-family: 'Instrument Sans', sans-serif; font-size
 <div id="setupScreen">
   <div class="setup-wrap">
     <div class="setup-logo"><div class="setup-logo-mark">✦</div>Moodbase</div>
-    <div class="setup-sub">Connect your database to get started</div>
+    <div class="setup-sub">Add your Claude key, then sign in with Google</div>
     <div class="setup-card">
-      <div class="setup-card-title">Supabase Setup</div>
-      <div class="setup-field"><label>Supabase URL</label><input type="text" id="sbUrl" placeholder="https://xxxxxxxxxxxx.supabase.co" /></div>
-      <div class="setup-field">
-        <label>Supabase Anon Key</label>
-        <input type="text" id="sbKey" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…" />
-        <div class="setup-hint">Find both at <a href="https://supabase.com/dashboard" target="_blank">supabase.com/dashboard</a> → your project → Settings → API</div>
-      </div>
+      <div class="setup-card-title">Get started</div>
       <div class="setup-field">
         <label>Claude API Key</label>
         <input type="password" id="claudeKey" placeholder="sk-ant-…" />
@@ -286,8 +280,7 @@ body { color: var(--text); font-family: 'Instrument Sans', sans-serif; font-size
         <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.56 2.93-2.22 5.42-4.74 7.08l7.63 5.92C43.76 37.59 46.98 31.65 46.98 24.55z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.63-5.92c-2.13 1.35-4.85 2.13-8.27 2.13-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
         Continue with Google
       </button>
-      <div class="setup-hint" style="margin-top:18px">Use the same Supabase project where Google is enabled under Authentication → Providers. Add this site URL to Authentication → URL Configuration → Redirect URLs.</div>
-      <button type="button" class="btn btn-ghost" id="changeProjectBtn" style="width:100%;margin-top:14px;font-size:12px">Use a different Supabase project…</button>
+      <div class="setup-hint" style="margin-top:18px">Google sign-in uses the project’s Authentication → Providers. Add this site URL to Authentication → URL Configuration → Redirect URLs.</div>
       <div class="setup-error" id="authError"></div>
     </div>
   </div>
@@ -391,6 +384,8 @@ body { color: var(--text); font-family: 'Instrument Sans', sans-serif; font-size
 <div class="toast" id="toast"></div>
 
 <script>
+const SUPABASE_URL="https://qxgsaqvulfafqqxrkyob.supabase.co";
+const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4Z3NhcXZ1bGZhZnFxeHJreW9iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NDY5MzUsImV4cCI6MjA5MTIyMjkzNX0.ScmKdK5dI8xBv-35r0Zx0GwqyCVWT9MsqnIKlM7GGWg";
 const STORAGE_KEY="sb_config";
 const THEME_KEY="sb_theme";
 const SWATCHES=["#C4A882","#4a9eba","#c47fb0","#7ab87a","#9b8bc4","#ba6060","#6ab0b0","#c49060","#7a9aba","#b09060"];
@@ -459,55 +454,53 @@ function bindAuthListener(){
 }
 
 // ── SETUP + AUTH ──
+function hasSavedUserConfig(raw){
+  if(!raw)return false;
+  try{
+    const cfg=JSON.parse(raw);
+    return!!(cfg&&(cfg.claudeKey!==undefined||cfg.url||cfg.key));
+  }catch{return false;}
+}
+
 window.addEventListener("DOMContentLoaded",async()=>{
-  const saved=localStorage.getItem(STORAGE_KEY);
-  if(saved){
+  const raw=localStorage.getItem(STORAGE_KEY);
+  let savedClaude="";
+  if(raw){
     try{
-      const cfg=JSON.parse(saved);
-      if(cfg.url&&cfg.key){
-        sbClient=createSbClient(cfg.url,cfg.key);
-        claudeKey=cfg.claudeKey||"";
-        bindAuthListener();
-        const{data:{session}}=await sbClient.auth.getSession();
-        if(session){await enterDashboard();updateUserChip(session.user);}
-        else showAuthOnly();
-        return;
-      }
+      const cfg=JSON.parse(raw);
+      if(cfg)savedClaude=cfg.claudeKey||"";
     }catch{}
   }
-  showSetupOnly();
+  sbClient=createSbClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+  claudeKey=savedClaude;
+  bindAuthListener();
+  const{data:{session}}=await sbClient.auth.getSession();
+  if(session){await enterDashboard();updateUserChip(session.user);return;}
+  if(!hasSavedUserConfig(raw)){showSetupOnly();return;}
+  showAuthOnly();
 });
 
 document.getElementById("setupBtn").addEventListener("click",async()=>{
-  const url=document.getElementById("sbUrl").value.trim();
-  const key=document.getElementById("sbKey").value.trim();
   const claude=document.getElementById("claudeKey").value.trim();
   const btn=document.getElementById("setupBtn");
-  if(!url||!key){showSetupError("Please fill in your Supabase URL and Key.");return;}
+  if(!claude){showSetupError("Please enter your Claude API key.");return;}
   btn.disabled=true;btn.textContent="Saving…";
   document.getElementById("setupError").style.display="none";
   try{
-    sbClient=createSbClient(url,key);
-    claudeKey=claude||"";
-    localStorage.setItem(STORAGE_KEY,JSON.stringify({url,key,claudeKey:claude}));
+    claudeKey=claude;
+    localStorage.setItem(STORAGE_KEY,JSON.stringify({claudeKey:claude}));
+    if(!sbClient)sbClient=createSbClient(SUPABASE_URL,SUPABASE_ANON_KEY);
     bindAuthListener();
     document.getElementById("setupScreen").style.display="none";
     showAuthOnly();
   }catch(err){
-    showSetupError("Could not initialize client.\n"+(err&&err.message?err.message:String(err)));
+    showSetupError("Could not save settings.\n"+(err&&err.message?err.message:String(err)));
   }
   btn.disabled=false;btn.textContent="Save & Continue →";
 });
 
-document.getElementById("changeProjectBtn").addEventListener("click",async()=>{
-  if(!confirm("Clear saved Supabase URL and keys on this device? You can reconnect from setup."))return;
-  if(sbClient)try{await sbClient.auth.signOut();}catch{}
-  localStorage.removeItem(STORAGE_KEY);
-  location.reload();
-});
-
 document.getElementById("googleSignInBtn").addEventListener("click",async()=>{
-  if(!sbClient){showAuthError("Missing Supabase configuration. Go back to setup.");return;}
+  if(!sbClient){showAuthError("App not ready. Refresh the page.");return;}
   hideAuthError();
   const btn=document.getElementById("googleSignInBtn");
   btn.disabled=true;
@@ -763,7 +756,7 @@ document.getElementById("masonryBtn").addEventListener("click",()=>{viewMode="ma
 document.getElementById("listBtn").addEventListener("click",()=>{viewMode="list";document.getElementById("listBtn").classList.add("active");document.getElementById("masonryBtn").classList.remove("active");renderBoard();});
 document.getElementById("refreshBtn").addEventListener("click",async()=>{await loadData();renderAll();});
 document.getElementById("disconnectBtn").addEventListener("click",async()=>{
-  if(!confirm("Disconnect from Supabase? This clears saved keys and signs you out."))return;
+  if(!confirm("Sign out and remove your saved Claude key from this device?"))return;
   if(sbClient)try{await sbClient.auth.signOut();}catch{}
   localStorage.removeItem(STORAGE_KEY);
   location.reload();
