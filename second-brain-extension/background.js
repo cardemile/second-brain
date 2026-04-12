@@ -190,9 +190,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
   if (request.action === "syncSessionFromWebApp") {
+    console.log("[Moodbase background] syncSessionFromWebApp received", {
+      tabId: sender?.tab?.id ?? null,
+      frameId: sender?.frameId ?? null,
+      url: sender?.url ?? null,
+      hasSession: !!request.session,
+      hasAccessToken: !!request.session?.access_token,
+      userEmail: request.session?.user?.email ?? null
+    });
     persistSessionFromSupabaseSession(request.session)
-      .then(() => sendResponse({ success: true }))
-      .catch((e) => sendResponse({ success: false, error: e?.message || String(e) }));
+      .then(() => {
+        console.log("[Moodbase background] syncSessionFromWebApp persist finished OK");
+        sendResponse({ success: true });
+      })
+      .catch((e) => {
+        console.warn("[Moodbase background] syncSessionFromWebApp persist failed", e?.message || e);
+        sendResponse({ success: false, error: e?.message || String(e) });
+      });
     return true;
   }
   if (request.action === "syncSessionFromWeb") {
