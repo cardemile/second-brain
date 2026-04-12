@@ -376,6 +376,15 @@ function clearLegacyClientSecrets(){
   try{localStorage.removeItem(LEGACY_SB_CONFIG_KEY);}catch{}
   try{sessionStorage.removeItem(LEGACY_CLAUDE_SESSION_KEY);}catch{}
 }
+
+function storageGet(key,fallback){
+  try{const v=localStorage.getItem(key);return v==null||v===""?fallback:v;}catch{return fallback;}
+}
+
+function storageSet(key,value){
+  try{localStorage.setItem(key,value);}catch{}
+}
+
 const SWATCHES=["#C4A882","#4a9eba","#c47fb0","#7ab87a","#9b8bc4","#ba6060","#6ab0b0","#c49060","#7a9aba","#b09060"];
 let sbClient=null,items=[],projects=[],pendingDeleteId=null
 let activeProject="ALL",activeTag=null,searchQuery="";
@@ -384,7 +393,7 @@ let selectedColor=SWATCHES[0],dragItemId=null;
 let dashboardMounted=false,authListenerSub=null,enterDashboardLock=false;
 
 // ── THEME ──
-const savedTheme=localStorage.getItem(THEME_KEY)||"light";
+const savedTheme=storageGet(THEME_KEY,"light");
 document.documentElement.setAttribute("data-theme",savedTheme);
 updateThemeIcon(savedTheme);
 
@@ -397,12 +406,14 @@ document.getElementById("themeToggle").addEventListener("click",()=>{
   const current=document.documentElement.getAttribute("data-theme");
   const next=current==="dark"?"light":"dark";
   document.documentElement.setAttribute("data-theme",next);
-  localStorage.setItem(THEME_KEY,next);
+  storageSet(THEME_KEY,next);
   updateThemeIcon(next);
 });
 
 function createSbClient(url,key){
-  return window.supabase.createClient(url,key,{
+  const g=window.supabase;
+  if(!g||typeof g.createClient!=="function")throw new Error("Supabase client library failed to load.");
+  return g.createClient(url,key,{
     auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce"}
   });
 }
@@ -436,12 +447,20 @@ function bindAuthListener(){
 
 // ── AUTH ──
 window.addEventListener("DOMContentLoaded",async()=>{
-  clearLegacyClientSecrets();
-  sbClient=createSbClient(SUPABASE_URL,SUPABASE_ANON_KEY);
-  bindAuthListener();
-  const{data:{session}}=await sbClient.auth.getSession();
-  if(session){await enterDashboard();updateUserChip(session.user);}
-  else showAuthOnly();
+  try{
+    clearLegacyClientSecrets();
+    sbClient=createSbClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+    bindAuthListener();
+    const sessionRes=await sbClient.auth.getSession();
+    const session=sessionRes?.data?.session??null;
+    if(sessionRes?.error)console.warn("[auth] getSession:",sessionRes.error);
+    if(session){await enterDashboard();updateUserChip(session.user);}
+    else showAuthOnly();
+  }catch(err){
+    console.error("[bootstrap]",err);
+    showAuthOnly();
+    showAuthError(err?.message||"Could not start the app. If you use strict tracking protection, allow storage for this site or try a normal window.");
+  }
 });
 
 document.getElementById("googleSignInBtn").addEventListener("click",async()=>{
@@ -483,7 +502,8 @@ async function enterDashboard(){
   if(dashboardMounted||!sbClient||enterDashboardLock)return;
   enterDashboardLock=true;
   try{
-    const{data:{session}}=await sbClient.auth.getSession();
+    const sessionRes=await sbClient.auth.getSession();
+    const session=sessionRes?.data?.session??null;
     if(!session||dashboardMounted)return;
     document.getElementById("authScreen").style.display="none";
     document.getElementById("app").style.display="flex";
@@ -497,8 +517,15 @@ async function enterDashboard(){
       showAuthError(err.message||String(err));
       return;
     }
-    await loadData();renderAll();setupRealtime();
-    dashboardMounted=true;
+    try{
+      await loadData();renderAll();setupRealtime();
+      dashboardMounted=true;
+    }catch(err){
+      console.error("[enterDashboard]",err);
+      document.getElementById("app").style.display="none";
+      showAuthOnly();
+      showAuthError(err?.message||"Could not load your saves.");
+    }
   }finally{
     enterDashboardLock=false;
   }
