@@ -425,8 +425,8 @@ function createSbClient(url,key){
 }
 
 function oauthRedirectUrl(){
-  const{origin,pathname,search}=window.location;
-  return`${origin}${pathname}${search}`;
+  const{pathname,search}=window.location;
+  return`https://moodbase.vercel.app${pathname}${search}`;
 }
 
 function showSetupOnly(){
