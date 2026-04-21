@@ -69,17 +69,40 @@
 <body>
 <div class="card">
   <div class="logo">✦ Moodbase</div>
-  <div class="url-preview" id="urlPreview"></div>
+  <div class="url-preview" id="urlPreview">Loading…</div>
   <textarea id="noteInput" rows="3" placeholder="Why are you saving this? What caught your eye…"></textarea>
   <button id="saveBtn">save to Moodbase</button>
   <div class="status" id="status"></div>
 </div>
 <script>
-  const params = new URLSearchParams(window.location.search);
-  const sharedUrl = params.get('url') || params.get('text') || '';
-  const sharedTitle = params.get('title') || '';
+  let sharedUrl = '';
+  let sharedTitle = '';
 
-  document.getElementById('urlPreview').textContent = sharedUrl || sharedTitle || 'Nothing shared';
+  // Handle both GET and POST share targets
+  async function init() {
+    if (document.referrer && navigator.serviceWorker) {
+      // Try to get data from service worker cache (POST share)
+      const cache = await caches.open('share-data');
+      const res = await cache.match('/share-data');
+      if (res) {
+        const data = await res.json();
+        sharedUrl = data.url || data.text || '';
+        sharedTitle = data.title || '';
+        await cache.delete('/share-data');
+      }
+    }
+
+    // Fallback to GET params
+    if (!sharedUrl && !sharedTitle) {
+      const params = new URLSearchParams(window.location.search);
+      sharedUrl = params.get('url') || params.get('text') || '';
+      sharedTitle = params.get('title') || '';
+    }
+
+    document.getElementById('urlPreview').textContent = sharedUrl || sharedTitle || 'Nothing shared';
+  }
+
+  init();
 
   document.getElementById('saveBtn').addEventListener('click', async () => {
     const btn = document.getElementById('saveBtn');
