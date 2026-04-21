@@ -308,7 +308,7 @@ async function resolveProjectId(slug, projects) {
 }
 
 async function runAI(raw, projects, apiKey) {
-  const response = await fetch("https://moodbase-two-alpha.vercel.app/api/categorize", {
+  const response = await fetch("https://moodbase.vercel.app/api/categorize", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ raw, projects })
