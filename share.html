@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Save to Moodbase</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0e0d0b;
+      color: #e8e4dc;
+      font-family: 'DM Mono', monospace;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+    }
+    .card {
+      background: #1a1916;
+      border: 1px solid #2a2925;
+      border-radius: 12px;
+      padding: 32px 28px;
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+    }
+    .logo { font-size: 13px; letter-spacing: 0.1em; color: #c9a96e; margin-bottom: 24px; }
+    .url-preview {
+      font-size: 12px;
+      color: #6b6860;
+      margin-bottom: 20px;
+      word-break: break-all;
+      line-height: 1.5;
+    }
+    textarea {
+      width: 100%;
+      background: #0e0d0b;
+      border: 1px solid #2a2925;
+      color: #e8e4dc;
+      font-family: inherit;
+      font-size: 13px;
+      padding: 12px;
+      border-radius: 8px;
+      resize: none;
+      outline: none;
+      margin-bottom: 16px;
+      font-style: italic;
+    }
+    textarea::placeholder { color: #3a3835; }
+    button {
+      width: 100%;
+      background: #c9a96e;
+      color: #0e0d0b;
+      border: none;
+      padding: 13px;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .status { margin-top: 16px; font-size: 12px; min-height: 18px; color: #6b6860; }
+    .status.success { color: #c9a96e; }
+    .status.error { color: #c47070; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">✦ Moodbase</div>
+  <div class="url-preview" id="urlPreview"></div>
+  <textarea id="noteInput" rows="3" placeholder="Why are you saving this? What caught your eye…"></textarea>
+  <button id="saveBtn">save to Moodbase</button>
+  <div class="status" id="status"></div>
+</div>
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const sharedUrl = params.get('url') || params.get('text') || '';
+  const sharedTitle = params.get('title') || '';
+
+  document.getElementById('urlPreview').textContent = sharedUrl || sharedTitle || 'Nothing shared';
+
+  document.getElementById('saveBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('saveBtn');
+    const status = document.getElementById('status');
+    const note = document.getElementById('noteInput').value.trim();
+
+    btn.disabled = true;
+    btn.textContent = 'saving…';
+
+    try {
+      const res = await fetch('/api/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          type: 'link',
+          url: sharedUrl,
+          title: sharedTitle,
+          note,
+          source: 'mobile-share'
+        })
+      });
+
+      if (res.status === 401) {
+        status.textContent = 'Not logged in — open Moodbase first to sign in.';
+        status.className = 'status error';
+        btn.disabled = false;
+        btn.textContent = 'save to Moodbase';
+        return;
+      }
+
+      if (!res.ok) throw new Error('Save failed');
+
+      status.textContent = '✦ saved!';
+      status.className = 'status success';
+      btn.textContent = 'saved ✦';
+      setTimeout(() => window.close(), 1500);
+
+    } catch (err) {
+      status.textContent = err.message || 'Something went wrong';
+      status.className = 'status error';
+      btn.disabled = false;
+      btn.textContent = 'save to Moodbase';
+    }
+  });
+</script>
+</body>
+</html>
